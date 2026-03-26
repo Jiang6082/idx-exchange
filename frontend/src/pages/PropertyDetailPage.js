@@ -3,6 +3,22 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { fetchPropertyDetail, fetchOpenHouses } from '../api/client';
 import './PropertyDetailPage.css';
 
+function getFirstPhotoUrl(property) {
+  const raw = property?.L_Photos;
+  if (!raw || typeof raw !== 'string') return null;
+
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      return parsed[0];
+    }
+  } catch (error) {
+    console.error('Failed to parse L_Photos:', error);
+  }
+
+  return null;
+}
+
 function PropertyDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -54,6 +70,8 @@ function PropertyDetailPage() {
     return null;
   }
 
+  const photoUrl = getFirstPhotoUrl(property);
+
   const address =
     property.L_Address || property.L_AddressStreet || 'Address unavailable';
 
@@ -99,7 +117,11 @@ function PropertyDetailPage() {
       </div>
 
       <div className="property-image-main">
-        <div className="no-image">No image available</div>
+        {photoUrl ? (
+          <img src={photoUrl} alt={address} />
+        ) : (
+          <div className="no-image">No image available</div>
+        )}
       </div>
 
       <div className="property-content">

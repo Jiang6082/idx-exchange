@@ -5,6 +5,22 @@ import PropertyFilters from '../components/PropertyFilters';
 import Pagination from '../components/Pagination';
 import './ListingsPage.css';
 
+function getFirstPhotoUrl(property) {
+  const raw = property?.L_Photos;
+  if (!raw || typeof raw !== 'string') return null;
+
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      return parsed[0];
+    }
+  } catch (error) {
+    console.error('Failed to parse L_Photos:', error);
+  }
+
+  return null;
+}
+
 function ListingsPage() {
   const [properties, setProperties] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -102,6 +118,8 @@ function PropertyCard({ property }) {
     navigate(`/property/${property.L_ListingID}`);
   };
 
+  const photoUrl = getFirstPhotoUrl(property);
+
   const address =
     property.L_Address || property.L_AddressStreet || 'Address unavailable';
 
@@ -126,7 +144,11 @@ function PropertyCard({ property }) {
   return (
     <div className="property-card" onClick={handleClick}>
       <div className="property-image">
-        <div className="no-image">No image available</div>
+        {photoUrl ? (
+          <img src={photoUrl} alt={address} />
+        ) : (
+          <div className="no-image">No image available</div>
+        )}
       </div>
 
       <div className="property-info">
