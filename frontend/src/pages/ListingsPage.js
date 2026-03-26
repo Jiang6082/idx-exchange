@@ -1,25 +1,33 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { fetchProperties } from '../api/client';
 import PropertyFilters from '../components/PropertyFilters';
+import Pagination from '../components/Pagination';
 import './ListingsPage.css';
 
 function ListingsPage() {
   const [properties, setProperties] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
   const [total, setTotal] = useState(0);
   const [filters, setFilters] = useState({});
+  const [currentPage, setCurrentPage] = useState(1);
+
+  const itemsPerPage = 20;
 
   useEffect(() => {
     loadProperties();
-  }, [filters]);
+  }, [filters, currentPage]);
 
   async function loadProperties() {
     try {
       setLoading(true);
       setError(null);
 
-      const params = { ...filters, limit: 20, offset: 0 };
+      const offset = (currentPage - 1) * itemsPerPage;
+      const params = { ...filters, limit: itemsPerPage, offset };
+
       const data = await fetchProperties(params);
 
       setProperties(data.results || []);
@@ -33,7 +41,15 @@ function ListingsPage() {
 
   const handleSearch = (newFilters) => {
     setFilters(newFilters);
+    setCurrentPage(1);
   };
+
+  const handlePageChange = (newPage) => {
+    setCurrentPage(newPage);
+    window.scrollTo(0, 0);
+  };
+
+  const totalPages = Math.ceil(total / itemsPerPage);
 
   return (
     <div className="listings-page">
@@ -41,14 +57,19 @@ function ListingsPage() {
 
       <PropertyFilters onSearch={handleSearch} />
 
+      {!loading && !error && total > 0 && (
+        <p className="results-summary">
+          Showing {((currentPage - 1) * itemsPerPage) + 1}-
+          {Math.min(currentPage * itemsPerPage, total)} of {total.toLocaleString()} properties
+        </p>
+      )}
+
       {loading && <div className="loading">Loading properties...</div>}
 
       {error && <div className="error">{error}</div>}
 
       {!loading && !error && (
         <>
-          <p>Showing {properties.length} of {total} properties</p>
-
           {properties.length === 0 ? (
             <div className="no-results">
               No properties found matching your criteria. Try adjusting your filters.
@@ -60,6 +81,14 @@ function ListingsPage() {
               ))}
             </div>
           )}
+
+          {properties.length > 0 && (
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={handlePageChange}
+            />
+          )}
         </>
       )}
     </div>
@@ -67,6 +96,12 @@ function ListingsPage() {
 }
 
 function PropertyCard({ property }) {
+  const navigate = useNavigate();
+
+  const handleClick = () => {
+    navigate(`/property/${property.L_ListingID}`);
+  };
+
   const address =
     property.L_Address || property.L_AddressStreet || 'Address unavailable';
 
@@ -89,7 +124,7 @@ function PropertyCard({ property }) {
       : '—';
 
   return (
-    <div className="property-card">
+    <div className="property-card" onClick={handleClick}>
       <div className="property-image">
         <div className="no-image">No image available</div>
       </div>
