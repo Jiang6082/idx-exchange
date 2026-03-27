@@ -132,14 +132,19 @@ function PropertyCard({ property }) {
       : 'N/A';
 
   const beds =
-    property.LM_Int2_3 !== null && property.LM_Int2_3 !== undefined
-      ? property.LM_Int2_3
+    property.L_Keyword2 !== null && property.L_Keyword2 !== undefined
+      ? property.L_Keyword2
       : '—';
 
   const baths =
     property.LM_Dec_3 !== null && property.LM_Dec_3 !== undefined
       ? property.LM_Dec_3
       : '—';
+
+  const sqft =
+    property.LM_Int2_3 !== null && property.LM_Int2_3 !== undefined
+      ? Number(property.LM_Int2_3).toLocaleString()
+      : null;
 
   return (
     <div className="property-card" onClick={handleClick}>
@@ -163,6 +168,12 @@ function PropertyCard({ property }) {
           <span>{beds} beds</span>
           <span>•</span>
           <span>{baths} baths</span>
+          {sqft && (
+            <>
+              <span>•</span>
+              <span>{sqft} sqft</span>
+            </>
+          )}
         </div>
       </div>
     </div>

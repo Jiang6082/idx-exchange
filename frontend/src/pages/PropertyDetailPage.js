@@ -85,14 +85,19 @@ function PropertyDetailPage() {
       : 'N/A';
 
   const beds =
-    property.LM_Int2_3 !== null && property.LM_Int2_3 !== undefined
-      ? property.LM_Int2_3
+    property.L_Keyword2 !== null && property.L_Keyword2 !== undefined
+      ? property.L_Keyword2
       : '—';
 
   const baths =
     property.LM_Dec_3 !== null && property.LM_Dec_3 !== undefined
       ? property.LM_Dec_3
       : '—';
+
+  const sqft =
+    property.LM_Int2_3 !== null && property.LM_Int2_3 !== undefined
+      ? Number(property.LM_Int2_3).toLocaleString()
+      : null;
 
   const remarks = property.L_Remarks;
   const propertyType = property.L_Class || property.L_Type_ || null;
@@ -126,7 +131,7 @@ function PropertyDetailPage() {
 
       <div className="property-content">
         <div className="property-main">
-          <div className="property-stats">
+            <div className="property-stats">
             <div className="stat">
               <div className="stat-value">{beds}</div>
               <div className="stat-label">Bedrooms</div>
@@ -135,6 +140,12 @@ function PropertyDetailPage() {
               <div className="stat-value">{baths}</div>
               <div className="stat-label">Bathrooms</div>
             </div>
+            {sqft && (
+              <div className="stat">
+                <div className="stat-value">{sqft}</div>
+                <div className="stat-label">Sq Ft</div>
+              </div>
+            )}
             {yearBuilt && (
               <div className="stat">
                 <div className="stat-value">{yearBuilt}</div>
