@@ -30,11 +30,14 @@ function ListingsPage() {
   const [filters, setFilters] = useState({});
   const [currentPage, setCurrentPage] = useState(1);
 
+  const [sortBy, setSortBy] = useState('');
+  const [sortOrder, setSortOrder] = useState('ASC');
+
   const itemsPerPage = 20;
 
   useEffect(() => {
     loadProperties();
-  }, [filters, currentPage]);
+  }, [filters, currentPage, sortBy, sortOrder]);
 
   async function loadProperties() {
     try {
@@ -42,7 +45,12 @@ function ListingsPage() {
       setError(null);
 
       const offset = (currentPage - 1) * itemsPerPage;
-      const params = { ...filters, limit: itemsPerPage, offset };
+      const params = {
+        ...filters,
+        limit: itemsPerPage,
+        offset,
+        ...(sortBy && { sortBy, sortOrder })
+      };
 
       const data = await fetchProperties(params);
 
@@ -72,6 +80,37 @@ function ListingsPage() {
       <h1>Property Listings</h1>
 
       <PropertyFilters onSearch={handleSearch} />
+
+      <div className="sort-controls">
+        <label htmlFor="sortBy">Sort by:</label>
+        <select
+          id="sortBy"
+          value={sortBy}
+          onChange={(e) => {
+            setSortBy(e.target.value);
+            setCurrentPage(1);
+          }}
+        >
+          <option value="">Default</option>
+          <option value="L_SystemPrice">Price</option>
+          <option value="ListingContractDate">Date Listed</option>
+          <option value="LM_Int2_3">Size</option>
+          <option value="L_Keyword2">Bedrooms</option>
+        </select>
+
+        {sortBy && (
+          <select
+            value={sortOrder}
+            onChange={(e) => {
+              setSortOrder(e.target.value);
+              setCurrentPage(1);
+            }}
+          >
+            <option value="ASC">Low to High</option>
+            <option value="DESC">High to Low</option>
+          </select>
+        )}
+      </div>
 
       {!loading && !error && total > 0 && (
         <p className="results-summary">

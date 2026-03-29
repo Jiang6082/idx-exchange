@@ -131,7 +131,7 @@ function PropertyDetailPage() {
 
       <div className="property-content">
         <div className="property-main">
-            <div className="property-stats">
+          <div className="property-stats">
             <div className="stat">
               <div className="stat-value">{beds}</div>
               <div className="stat-label">Bedrooms</div>
