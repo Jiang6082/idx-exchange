@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { fetchProperties } from '../api/client';
 import PropertyFilters from '../components/PropertyFilters';
@@ -21,6 +21,90 @@ function getFirstPhotoUrl(property) {
   }
 
   return null;
+}
+
+function formatCurrency(value) {
+  if (value === null || value === undefined || value === '') {
+    return 'N/A';
+  }
+
+  return `$${Number(value).toLocaleString()}`;
+}
+
+function formatCompactNumber(value) {
+  if (!value) {
+    return '0';
+  }
+
+  return new Intl.NumberFormat('en-US', {
+    notation: 'compact',
+    maximumFractionDigits: 1
+  }).format(value);
+}
+
+function formatListedDate(value) {
+  if (!value) {
+    return null;
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+
+  return date.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric'
+  });
+}
+
+function getLocationLabel(property) {
+  const city = property.L_City || 'Unknown City';
+  const state = property.L_State || '';
+  const zip = property.L_Zip || '';
+
+  return [city, state].filter(Boolean).join(', ') + (zip ? ` ${zip}` : '');
+}
+
+function getActiveFilterChips(filters) {
+  const labels = {
+    city: 'City',
+    zipcode: 'ZIP',
+    minPrice: 'Min',
+    maxPrice: 'Max',
+    beds: 'Beds',
+    baths: 'Baths'
+  };
+
+  return Object.entries(filters).map(([key, value]) => ({
+    key,
+    label: labels[key] || key,
+    value:
+      key === 'minPrice' || key === 'maxPrice'
+        ? formatCurrency(value)
+        : value
+  }));
+}
+
+function HeartIcon({ active }) {
+  return (
+    <svg
+      className="favorite-icon"
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <path
+        d="M12 21s-6.716-4.35-9.293-8.033C.588 9.945 1.26 5.73 4.64 4.03c2.149-1.083 4.95-.47 6.36 1.496 1.41-1.966 4.211-2.579 6.36-1.496 3.38 1.7 4.052 5.915 1.933 8.937C18.716 16.65 12 21 12 21Z"
+        fill={active ? 'currentColor' : 'none'}
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
 }
 
 function ListingsPage() {
@@ -48,32 +132,44 @@ function ListingsPage() {
   } = useFavorites();
 
   useEffect(() => {
-    loadProperties();
-  }, [filters, currentPage, sortBy, sortOrder]);
+    let cancelled = false;
 
-  async function loadProperties() {
-    try {
-      setLoading(true);
-      setError(null);
+    async function loadProperties() {
+      try {
+        setLoading(true);
+        setError(null);
 
-      const offset = (currentPage - 1) * itemsPerPage;
-      const params = {
-        ...filters,
-        limit: itemsPerPage,
-        offset,
-        ...(sortBy && { sortBy, sortOrder })
-      };
+        const offset = (currentPage - 1) * itemsPerPage;
+        const params = {
+          ...filters,
+          limit: itemsPerPage,
+          offset,
+          ...(sortBy && { sortBy, sortOrder })
+        };
 
-      const data = await fetchProperties(params);
+        const data = await fetchProperties(params);
 
-      setProperties(data.results || []);
-      setTotal(data.total || 0);
-    } catch (err) {
-      setError('Failed to load properties. Please try again.');
-    } finally {
-      setLoading(false);
+        if (!cancelled) {
+          setProperties(data.results || []);
+          setTotal(data.total || 0);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError('Failed to load properties. Please try again.');
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
     }
-  }
+
+    loadProperties();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [filters, currentPage, sortBy, sortOrder]);
 
   const handleSearch = (newFilters) => {
     setFilters(newFilters);
@@ -82,24 +178,103 @@ function ListingsPage() {
 
   const handlePageChange = (newPage) => {
     setCurrentPage(newPage);
-    window.scrollTo(0, 0);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const totalPages = Math.ceil(total / itemsPerPage);
+  const handleRemoveFilter = (filterKey) => {
+    const nextFilters = { ...filters };
+    delete nextFilters[filterKey];
+    setFilters(nextFilters);
+    setCurrentPage(1);
+  };
 
-  const displayedProperties = showFavoritesOnly
-    ? properties.filter((property) => favorites.includes(property.L_ListingID))
-    : properties;
+  const displayedProperties = useMemo(
+    () =>
+      showFavoritesOnly
+        ? properties.filter((property) => favorites.includes(property.L_ListingID))
+        : properties,
+    [favorites, properties, showFavoritesOnly]
+  );
+
+  const activeFilterChips = useMemo(() => getActiveFilterChips(filters), [filters]);
+  const totalPages = Math.ceil(total / itemsPerPage);
+  const effectiveTotalPages = showFavoritesOnly
+    ? Math.max(1, Math.ceil(displayedProperties.length / itemsPerPage))
+    : totalPages;
+  const effectiveCurrentPage = showFavoritesOnly ? 1 : currentPage;
+  const priceValues = properties
+    .map((property) => Number(property.L_SystemPrice))
+    .filter((value) => !Number.isNaN(value) && value > 0);
+  const averagePrice =
+    priceValues.length > 0
+      ? Math.round(priceValues.reduce((sum, value) => sum + value, 0) / priceValues.length)
+      : null;
+  const mapCount = properties.filter((property) => {
+    const lat = Number(property.LMD_MP_Latitude);
+    const lng = Number(property.LMD_MP_Longitude);
+    return !Number.isNaN(lat) && !Number.isNaN(lng) && lat !== 0 && lng !== 0;
+  }).length;
 
   return (
     <div className="listings-page">
-      <h1>Property Listings</h1>
+      <section className="listings-hero">
+        <div className="hero-copy">
+          <span className="hero-eyebrow">Curated Market Search</span>
+          <h1>Property Listings</h1>
+          <p className="hero-subtitle">
+            Explore active homes with map-first browsing, favorites, and a cleaner
+            search experience built for quick comparison.
+          </p>
+        </div>
+
+        <div className="hero-stats" aria-label="Listing summary">
+          <div className="hero-stat-card">
+            <span className="hero-stat-value">
+              {formatCompactNumber(showFavoritesOnly ? displayedProperties.length : total)}
+            </span>
+            <span className="hero-stat-label">
+              {showFavoritesOnly ? 'Favorites on this page' : 'Listings tracked'}
+            </span>
+          </div>
+          <div className="hero-stat-card">
+            <span className="hero-stat-value">{favorites.length}</span>
+            <span className="hero-stat-label">Saved homes</span>
+          </div>
+          <div className="hero-stat-card">
+            <span className="hero-stat-value">
+              {averagePrice ? formatCurrency(averagePrice) : 'N/A'}
+            </span>
+            <span className="hero-stat-label">Average price on page</span>
+          </div>
+        </div>
+      </section>
 
       <PropertyFilters onSearch={handleSearch} />
 
+      {activeFilterChips.length > 0 && (
+        <div className="active-filters" aria-label="Active filters">
+          {activeFilterChips.map((filter) => (
+            <button
+              key={filter.key}
+              type="button"
+              className="filter-chip"
+              onClick={() => handleRemoveFilter(filter.key)}
+            >
+              <span>{filter.label}</span>
+              <strong>{filter.value}</strong>
+              <span aria-hidden="true">×</span>
+            </button>
+          ))}
+        </div>
+      )}
+
       <div className="listings-toolbar">
         <div className="sort-controls">
-          <label htmlFor="sortBy">Sort by:</label>
+          <div className="toolbar-label-group">
+            <span className="toolbar-kicker">Sort results</span>
+            <label htmlFor="sortBy">Choose an order</label>
+          </div>
+
           <select
             id="sortBy"
             value={sortBy}
@@ -108,67 +283,92 @@ function ListingsPage() {
               setCurrentPage(1);
             }}
           >
-            <option value="">Default</option>
+            <option value="">Recommended</option>
             <option value="L_SystemPrice">Price</option>
-            <option value="ListingContractDate">Date Listed</option>
-            <option value="LM_Int2_3">Size</option>
+            <option value="ListingContractDate">Date listed</option>
+            <option value="LM_Int2_3">Square footage</option>
             <option value="L_Keyword2">Bedrooms</option>
           </select>
 
           {sortBy && (
             <select
+              aria-label="Sort direction"
               value={sortOrder}
               onChange={(e) => {
                 setSortOrder(e.target.value);
                 setCurrentPage(1);
               }}
             >
-              <option value="ASC">Low to High</option>
-              <option value="DESC">High to Low</option>
+              <option value="ASC">Low to high</option>
+              <option value="DESC">High to low</option>
             </select>
           )}
         </div>
 
-        <div className="view-controls">
+        <div className="view-controls" aria-label="View controls">
           <button
             type="button"
             className={viewMode === 'list' ? 'view-btn active' : 'view-btn'}
             onClick={() => setViewMode('list')}
           >
-            List View
+            Grid
           </button>
           <button
             type="button"
             className={viewMode === 'map' ? 'view-btn active' : 'view-btn'}
             onClick={() => setViewMode('map')}
           >
-            Map View
+            Map
           </button>
           <button
             type="button"
             className={showFavoritesOnly ? 'view-btn active' : 'view-btn'}
             onClick={() => setShowFavoritesOnly((prev) => !prev)}
           >
-            {showFavoritesOnly ? 'Showing Favorites' : 'Show Favorites'}
+            {showFavoritesOnly ? 'Favorites only' : 'Show favorites'}
           </button>
         </div>
       </div>
 
       {!loading && !error && total > 0 && (
-        <p className="results-summary">
-          Showing {displayedProperties.length} of {total.toLocaleString()} properties
-        </p>
+        <div className="results-summary-shell">
+          <p className="results-summary">
+            {showFavoritesOnly
+              ? `Showing ${displayedProperties.length} favorite homes on this page`
+              : `Showing ${displayedProperties.length} homes from page ${effectiveCurrentPage} of ${Math.max(effectiveTotalPages, 1)}`}
+          </p>
+          <div className="results-meta">
+            <span>
+              {showFavoritesOnly
+                ? `${displayedProperties.length} favorites in current results`
+                : `${total.toLocaleString()} total matches`}
+            </span>
+            <span>
+              {showFavoritesOnly
+                ? `${displayedProperties.filter((property) => {
+                    const lat = Number(property.LMD_MP_Latitude);
+                    const lng = Number(property.LMD_MP_Longitude);
+                    return !Number.isNaN(lat) && !Number.isNaN(lng) && lat !== 0 && lng !== 0;
+                  }).length} favorites with map coordinates`
+                : `${mapCount} with map coordinates`}
+            </span>
+          </div>
+        </div>
       )}
 
-      {loading && <div className="loading">Loading properties...</div>}
+      {loading && <div className="loading panel">Loading properties...</div>}
 
-      {error && <div className="error">{error}</div>}
+      {error && <div className="error panel">{error}</div>}
 
       {!loading && !error && (
         <>
           {displayedProperties.length === 0 ? (
-            <div className="no-results">
-              No properties found matching your criteria. Try adjusting your filters.
+            <div className="no-results panel">
+              <h2>No properties match the current view</h2>
+              <p>
+                Try broadening the filters, switching off favorites-only mode, or
+                exploring another area.
+              </p>
             </div>
           ) : viewMode === 'list' ? (
             <div className="property-grid">
@@ -188,8 +388,8 @@ function ListingsPage() {
 
           {viewMode === 'list' && displayedProperties.length > 0 && (
             <Pagination
-              currentPage={currentPage}
-              totalPages={totalPages}
+              currentPage={effectiveCurrentPage}
+              totalPages={effectiveTotalPages}
               onPageChange={handlePageChange}
             />
           )}
@@ -217,42 +417,45 @@ function PropertyCard({ property, isFavorite, addFavorite, removeFavorite }) {
   };
 
   const photoUrl = getFirstPhotoUrl(property);
-
   const address =
     property.L_Address || property.L_AddressStreet || 'Address unavailable';
-
-  const city = property.L_City || 'Unknown City';
-  const state = property.L_State || '';
-
-  const price =
-    property.L_SystemPrice !== null && property.L_SystemPrice !== undefined
-      ? Number(property.L_SystemPrice).toLocaleString()
-      : 'N/A';
-
+  const location = getLocationLabel(property);
+  const price = formatCurrency(property.L_SystemPrice);
   const beds =
     property.L_Keyword2 !== null && property.L_Keyword2 !== undefined
       ? property.L_Keyword2
       : '—';
-
   const baths =
     property.LM_Dec_3 !== null && property.LM_Dec_3 !== undefined
       ? property.LM_Dec_3
       : '—';
-
   const sqft =
     property.LM_Int2_3 !== null && property.LM_Int2_3 !== undefined
       ? Number(property.LM_Int2_3).toLocaleString()
       : null;
+  const status = property.StandardStatus || property.L_Status || 'Active listing';
+  const listedDate = formatListedDate(property.ListingContractDate);
 
   return (
-    <div className="property-card" onClick={handleClick}>
+    <article
+      className="property-card"
+      onClick={handleClick}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          handleClick();
+        }
+      }}
+      role="button"
+      tabIndex={0}
+    >
       <button
         type="button"
         className={`favorite-btn ${isFavorite ? 'active' : ''}`}
         onClick={handleFavoriteClick}
         aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
       >
-        {isFavorite ? '❤' : '🤍'}
+        <HeartIcon active={isFavorite} />
       </button>
 
       <div className="property-image">
@@ -261,29 +464,34 @@ function PropertyCard({ property, isFavorite, addFavorite, removeFavorite }) {
         ) : (
           <div className="no-image">No image available</div>
         )}
+
+        <div className="property-image-overlay">
+          <span className="status-pill">{status}</span>
+          {listedDate && <span className="listed-pill">Listed {listedDate}</span>}
+        </div>
       </div>
 
       <div className="property-info">
-        <div className="price">${price}</div>
-        <div className="address">{address}</div>
-        <div className="city">
-          {city}
-          {state ? `, ${state}` : ''}
+        <div className="property-card-header">
+          <div className="price">{price}</div>
+          <span className="property-card-id">MLS #{property.L_ListingID}</span>
         </div>
+
+        <div className="address">{address}</div>
+        <div className="city">{location}</div>
 
         <div className="property-details">
           <span>{beds} beds</span>
-          <span>•</span>
           <span>{baths} baths</span>
-          {sqft && (
-            <>
-              <span>•</span>
-              <span>{sqft} sqft</span>
-            </>
-          )}
+          {sqft && <span>{sqft} sqft</span>}
+        </div>
+
+        <div className="property-card-footer">
+          <span>Explore details</span>
+          <span aria-hidden="true">→</span>
         </div>
       </div>
-    </div>
+    </article>
   );
 }
 

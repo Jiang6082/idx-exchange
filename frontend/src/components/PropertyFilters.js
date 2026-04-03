@@ -48,55 +48,66 @@ function PropertyFilters({ onSearch }) {
 
   return (
     <form className="property-filters" onSubmit={handleSubmit}>
-      <div className="filter-row">
+      <div className="filters-heading">
+        <div>
+          <span className="filters-eyebrow">Search inventory</span>
+          <h2>Refine your criteria</h2>
+        </div>
+        <p>Filter by location, price, and home size to narrow the results quickly.</p>
+      </div>
 
+      <div className="filter-row">
         <div className="filter-group">
-          <label>City</label>
+          <label htmlFor="city">City</label>
           <input
+            id="city"
             type="text"
             name="city"
             value={filters.city}
             onChange={handleChange}
-            placeholder="Enter city"
+            placeholder="Austin"
           />
         </div>
 
         <div className="filter-group">
-          <label>ZIP Code</label>
+          <label htmlFor="zipcode">ZIP Code</label>
           <input
+            id="zipcode"
             type="text"
             name="zipcode"
             value={filters.zipcode}
             onChange={handleChange}
-            placeholder="Enter ZIP"
+            placeholder="78704"
           />
         </div>
 
         <div className="filter-group">
-          <label>Min Price</label>
+          <label htmlFor="minPrice">Min Price</label>
           <input
+            id="minPrice"
             type="number"
             name="minPrice"
             value={filters.minPrice}
             onChange={handleChange}
-            placeholder="$0"
+            placeholder="250000"
           />
         </div>
 
         <div className="filter-group">
-          <label>Max Price</label>
+          <label htmlFor="maxPrice">Max Price</label>
           <input
+            id="maxPrice"
             type="number"
             name="maxPrice"
             value={filters.maxPrice}
             onChange={handleChange}
-            placeholder="No max"
+            placeholder="950000"
           />
         </div>
 
         <div className="filter-group">
-          <label>Beds</label>
-          <select name="beds" value={filters.beds} onChange={handleChange}>
+          <label htmlFor="beds">Beds</label>
+          <select id="beds" name="beds" value={filters.beds} onChange={handleChange}>
             <option value="">Any</option>
             <option value="1">1+</option>
             <option value="2">2+</option>
@@ -107,8 +118,8 @@ function PropertyFilters({ onSearch }) {
         </div>
 
         <div className="filter-group">
-          <label>Baths</label>
-          <select name="baths" value={filters.baths} onChange={handleChange}>
+          <label htmlFor="baths">Baths</label>
+          <select id="baths" name="baths" value={filters.baths} onChange={handleChange}>
             <option value="">Any</option>
             <option value="1">1+</option>
             <option value="2">2+</option>
@@ -121,7 +132,7 @@ function PropertyFilters({ onSearch }) {
 
       <div className="filter-actions">
         <button type="submit" className="btn-primary">
-          Search
+          Search listings
         </button>
         <button
           type="button"

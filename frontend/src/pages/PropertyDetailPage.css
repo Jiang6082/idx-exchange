@@ -1,65 +1,147 @@
 .property-detail-page {
-  max-width: 1200px;
+  max-width: 1280px;
   margin: 0 auto;
-  padding: 20px;
+  padding: 2.25rem 1.25rem 4rem;
+}
+
+.panel,
+.loading,
+.error {
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--line);
+  background: var(--surface);
+  backdrop-filter: blur(18px);
+  box-shadow: var(--shadow-md);
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.42rem 0.7rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 800;
 }
 
 .btn-back {
-  background: white;
-  border: 1px solid #ddd;
-  padding: 8px 16px;
-  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.84);
+  border: 1px solid var(--line);
+  padding: 0.8rem 1rem;
+  border-radius: 999px;
   cursor: pointer;
-  margin-bottom: 20px;
-  font-size: 14px;
-  transition: all 0.2s;
+  margin-bottom: 1.2rem;
+  font-size: 0.94rem;
+  font-weight: 700;
+  transition: transform 0.2s ease, border-color 0.2s ease;
 }
 
 .btn-back:hover {
-  background: #f5f5f5;
-  border-color: #1976d2;
+  transform: translateY(-1px);
+  border-color: var(--accent);
+}
+
+.detail-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(420px, 0.95fr);
+  gap: 1.4rem;
+  margin-bottom: 1.6rem;
 }
 
 .property-header {
-  margin-bottom: 20px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-md);
+  backdrop-filter: blur(18px);
+  border-radius: var(--radius-xl);
+  padding: 1.7rem;
+}
+
+.detail-meta-row {
+  display: flex;
+  gap: 0.8rem;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 0.95rem;
 }
 
 .property-header h1 {
-  color: #1976d2;
-  margin: 0 0 10px 0;
+  color: var(--headline);
+  margin: 0 0 0.55rem;
+  font-size: clamp(2.4rem, 5vw, 4rem);
+  line-height: 0.95;
+}
+
+.detail-status-pill {
+  background: rgba(37, 99, 235, 0.12);
+  color: var(--accent-strong);
+}
+
+.detail-listed-date {
+  color: var(--text-muted);
+  font-weight: 700;
+  font-size: 0.92rem;
 }
 
 .property-address {
-  font-size: 20px;
-  font-weight: 500;
-  margin: 5px 0;
+  font-size: clamp(1.3rem, 2vw, 1.8rem);
+  font-weight: 700;
+  margin: 0.15rem 0;
 }
 
 .property-location {
-  color: #666;
-  margin: 5px 0 12px 0;
+  color: var(--text-muted);
+  margin: 0.3rem 0 1.2rem;
+  font-size: 1rem;
 }
 
-.detail-favorite-btn {
-  padding: 10px 14px;
-  border: 1px solid #ddd;
-  background: #fff;
-  border-radius: 6px;
+.detail-actions {
+  display: flex;
+  gap: 0.8rem;
+  flex-wrap: wrap;
+}
+
+.detail-favorite-btn,
+.detail-share-btn {
+  padding: 0.85rem 1.15rem;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.88);
+  border-radius: 999px;
   cursor: pointer;
-  font-size: 14px;
+  font-size: 0.94rem;
+  font-weight: 700;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.detail-favorite-btn:hover,
+.detail-share-btn:hover {
+  transform: translateY(-1px);
 }
 
 .detail-favorite-btn.active {
-  background: #fff0f3;
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  border-color: rgba(37, 99, 235, 0.24);
+}
+
+.detail-share-btn {
+  color: var(--text);
+}
+
+.share-message {
+  margin: 0.9rem 0 0;
+  color: var(--accent-strong);
+  font-weight: 700;
+  font-size: 0.92rem;
 }
 
 .property-image-main {
   width: 100%;
-  height: 400px;
+  min-height: 420px;
   background: #f5f5f5;
-  border-radius: 8px;
+  border-radius: 28px;
   overflow: hidden;
-  margin-bottom: 30px;
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-lg);
 }
 
 .detail-main-image {
@@ -70,148 +152,196 @@
 
 .property-content {
   display: grid;
-  grid-template-columns: 1fr 350px;
-  gap: 30px;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: 1.5rem;
 }
 
 .property-stats {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-  gap: 20px;
-  padding: 20px;
-  background: #f5f5f5;
-  border-radius: 8px;
-  margin-bottom: 30px;
+  gap: 1rem;
+  padding: 1.15rem;
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: 24px;
+  border: 1px solid var(--line);
+  margin-bottom: 1.5rem;
+  box-shadow: var(--shadow-md);
 }
 
 .stat {
   text-align: center;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(239, 244, 255, 0.92));
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 1rem;
 }
 
 .stat-value {
-  font-size: 28px;
-  font-weight: bold;
-  color: #1976d2;
+  font-size: 1.9rem;
+  font-weight: 700;
+  color: var(--headline);
+  font-family: 'Sora', sans-serif;
 }
 
 .stat-label {
-  font-size: 14px;
-  color: #666;
-  margin-top: 5px;
+  font-size: 0.86rem;
+  color: var(--text-muted);
+  margin-top: 0.35rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
 }
 
 .property-section {
-  margin-bottom: 30px;
+  margin-bottom: 1.5rem;
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  padding: 1.5rem;
+  box-shadow: var(--shadow-md);
 }
 
 .property-section h2 {
-  font-size: 24px;
-  margin-bottom: 15px;
+  font-size: 1.7rem;
+  margin: 0 0 1rem;
 }
 
 .detail-grid {
   display: grid;
-  gap: 15px;
+  gap: 0.95rem;
 }
 
 .detail-item {
   display: flex;
-  border-bottom: 1px solid #eee;
-  padding-bottom: 10px;
+  justify-content: space-between;
+  gap: 1rem;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 0.8rem;
+  flex-wrap: wrap;
 }
 
 .detail-label {
-  font-weight: 500;
+  font-weight: 700;
   width: 180px;
-  color: #666;
+  color: var(--text-muted);
 }
 
 .detail-value {
   flex: 1;
+  font-weight: 600;
 }
 
 .property-description {
-  line-height: 1.6;
-  color: #333;
+  line-height: 1.8;
+  color: var(--text);
+  margin: 0;
 }
 
 .property-sidebar {
   position: sticky;
-  top: 20px;
+  top: 1.5rem;
   height: fit-content;
 }
 
 .open-houses-section,
 .listing-info-section {
-  background: #f5f5f5;
-  padding: 20px;
-  border-radius: 8px;
-  margin-bottom: 20px;
+  background: rgba(255, 255, 255, 0.8);
+  padding: 1.25rem;
+  border-radius: 24px;
+  margin-bottom: 1rem;
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-md);
+}
+
+.sidebar-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
 }
 
 .open-houses-section h3,
 .listing-info-section h3 {
-  margin-top: 0;
-  margin-bottom: 15px;
+  margin: 0;
+  font-size: 1.35rem;
+}
+
+.sidebar-badge {
+  display: inline-flex;
+  min-width: 2rem;
+  height: 2rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-weight: 800;
 }
 
 .open-houses-list {
   display: flex;
   flex-direction: column;
-  gap: 15px;
+  gap: 0.8rem;
 }
 
 .open-house-item {
   background: white;
-  padding: 15px;
-  border-radius: 4px;
+  padding: 1rem;
+  border-radius: 18px;
+  border: 1px solid var(--line);
 }
 
 .oh-date {
-  font-weight: 500;
-  margin-bottom: 5px;
+  font-weight: 700;
+  margin-bottom: 0.35rem;
 }
 
 .oh-time {
-  color: #1976d2;
-  margin-bottom: 8px;
+  color: var(--accent-strong);
+  font-weight: 700;
 }
 
 .no-open-houses {
-  color: #666;
+  color: var(--text-muted);
   font-style: italic;
+  margin: 0;
+  line-height: 1.6;
 }
 
 .listing-info {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 0.9rem;
 }
 
 .info-item {
   display: flex;
   justify-content: space-between;
+  gap: 1rem;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 0.7rem;
 }
 
 .info-label {
-  font-weight: 500;
-  color: #666;
+  font-weight: 700;
+  color: var(--text-muted);
 }
 
 .info-value {
   text-align: right;
+  font-weight: 600;
 }
 
 .error-container {
   max-width: 600px;
-  margin: 100px auto;
+  margin: 6rem auto;
   text-align: center;
 }
 
 .loading {
   text-align: center;
-  padding: 100px 20px;
-  font-size: 18px;
+  padding: 5rem 1.2rem;
+  font-size: 1.05rem;
 }
 
 .no-image {
@@ -219,15 +349,44 @@
   align-items: center;
   justify-content: center;
   height: 100%;
-  color: #999;
+  color: var(--text-muted);
+  background: linear-gradient(135deg, #e7efff, #f5f9ff);
 }
 
-@media (max-width: 768px) {
+@media (max-width: 980px) {
+  .detail-hero,
   .property-content {
     grid-template-columns: 1fr;
   }
 
   .property-sidebar {
     position: static;
+  }
+}
+
+@media (max-width: 768px) {
+  .property-detail-page {
+    padding: 1.2rem 0.9rem 3rem;
+  }
+
+  .property-header,
+  .property-section,
+  .open-houses-section,
+  .listing-info-section {
+    padding: 1.15rem;
+  }
+
+  .property-image-main {
+    min-height: 320px;
+  }
+
+  .detail-item,
+  .info-item {
+    flex-direction: column;
+    align-items: start;
+  }
+
+  .info-value {
+    text-align: left;
   }
 }
