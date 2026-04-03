@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { fetchPropertyDetail, fetchOpenHouses } from '../api/client';
+import { useFavorites } from '../hooks/useFavorites';
 import './PropertyDetailPage.css';
 
 function getFirstPhotoUrl(property) {
@@ -27,6 +28,12 @@ function PropertyDetailPage() {
   const [openHouses, setOpenHouses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  const {
+    addFavorite,
+    removeFavorite,
+    isFavorite
+  } = useFavorites();
 
   useEffect(() => {
     loadPropertyData();
@@ -70,6 +77,8 @@ function PropertyDetailPage() {
     return null;
   }
 
+  const favorite = isFavorite(property.L_ListingID);
+
   const photoUrl = getFirstPhotoUrl(property);
 
   const address =
@@ -106,6 +115,14 @@ function PropertyDetailPage() {
   const status = property.StandardStatus || property.L_Status || null;
   const listedDate = property.ListingContractDate || null;
 
+  const handleFavoriteClick = () => {
+    if (favorite) {
+      removeFavorite(property.L_ListingID);
+    } else {
+      addFavorite(property.L_ListingID);
+    }
+  };
+
   return (
     <div className="property-detail-page">
       <button onClick={() => navigate('/')} className="btn-back">
@@ -119,11 +136,18 @@ function PropertyDetailPage() {
           {city}
           {state ? `, ${state}` : ''} {zip}
         </p>
+        <button
+          type="button"
+          className={`detail-favorite-btn ${favorite ? 'active' : ''}`}
+          onClick={handleFavoriteClick}
+        >
+          {favorite ? 'Remove from Favorites' : 'Add to Favorites'}
+        </button>
       </div>
 
       <div className="property-image-main">
         {photoUrl ? (
-          <img src={photoUrl} alt={address} />
+          <img src={photoUrl} alt={address} className="detail-main-image" />
         ) : (
           <div className="no-image">No image available</div>
         )}

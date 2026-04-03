@@ -37,7 +37,20 @@
 
 .property-location {
   color: #666;
-  margin: 5px 0;
+  margin: 5px 0 12px 0;
+}
+
+.detail-favorite-btn {
+  padding: 10px 14px;
+  border: 1px solid #ddd;
+  background: #fff;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.detail-favorite-btn.active {
+  background: #fff0f3;
 }
 
 .property-image-main {
@@ -47,6 +60,12 @@
   border-radius: 8px;
   overflow: hidden;
   margin-bottom: 30px;
+}
+
+.detail-main-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .property-content {

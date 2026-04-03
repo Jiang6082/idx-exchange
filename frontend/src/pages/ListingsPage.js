@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { fetchProperties } from '../api/client';
 import PropertyFilters from '../components/PropertyFilters';
 import Pagination from '../components/Pagination';
+import MapView from '../components/MapView';
+import { useFavorites } from '../hooks/useFavorites';
 import './ListingsPage.css';
 
 function getFirstPhotoUrl(property) {
@@ -33,7 +35,17 @@ function ListingsPage() {
   const [sortBy, setSortBy] = useState('');
   const [sortOrder, setSortOrder] = useState('ASC');
 
+  const [viewMode, setViewMode] = useState('list');
+  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
+
   const itemsPerPage = 20;
+
+  const {
+    favorites,
+    addFavorite,
+    removeFavorite,
+    isFavorite
+  } = useFavorites();
 
   useEffect(() => {
     loadProperties();
@@ -75,47 +87,76 @@ function ListingsPage() {
 
   const totalPages = Math.ceil(total / itemsPerPage);
 
+  const displayedProperties = showFavoritesOnly
+    ? properties.filter((property) => favorites.includes(property.L_ListingID))
+    : properties;
+
   return (
     <div className="listings-page">
       <h1>Property Listings</h1>
 
       <PropertyFilters onSearch={handleSearch} />
 
-      <div className="sort-controls">
-        <label htmlFor="sortBy">Sort by:</label>
-        <select
-          id="sortBy"
-          value={sortBy}
-          onChange={(e) => {
-            setSortBy(e.target.value);
-            setCurrentPage(1);
-          }}
-        >
-          <option value="">Default</option>
-          <option value="L_SystemPrice">Price</option>
-          <option value="ListingContractDate">Date Listed</option>
-          <option value="LM_Int2_3">Size</option>
-          <option value="L_Keyword2">Bedrooms</option>
-        </select>
-
-        {sortBy && (
+      <div className="listings-toolbar">
+        <div className="sort-controls">
+          <label htmlFor="sortBy">Sort by:</label>
           <select
-            value={sortOrder}
+            id="sortBy"
+            value={sortBy}
             onChange={(e) => {
-              setSortOrder(e.target.value);
+              setSortBy(e.target.value);
               setCurrentPage(1);
             }}
           >
-            <option value="ASC">Low to High</option>
-            <option value="DESC">High to Low</option>
+            <option value="">Default</option>
+            <option value="L_SystemPrice">Price</option>
+            <option value="ListingContractDate">Date Listed</option>
+            <option value="LM_Int2_3">Size</option>
+            <option value="L_Keyword2">Bedrooms</option>
           </select>
-        )}
+
+          {sortBy && (
+            <select
+              value={sortOrder}
+              onChange={(e) => {
+                setSortOrder(e.target.value);
+                setCurrentPage(1);
+              }}
+            >
+              <option value="ASC">Low to High</option>
+              <option value="DESC">High to Low</option>
+            </select>
+          )}
+        </div>
+
+        <div className="view-controls">
+          <button
+            type="button"
+            className={viewMode === 'list' ? 'view-btn active' : 'view-btn'}
+            onClick={() => setViewMode('list')}
+          >
+            List View
+          </button>
+          <button
+            type="button"
+            className={viewMode === 'map' ? 'view-btn active' : 'view-btn'}
+            onClick={() => setViewMode('map')}
+          >
+            Map View
+          </button>
+          <button
+            type="button"
+            className={showFavoritesOnly ? 'view-btn active' : 'view-btn'}
+            onClick={() => setShowFavoritesOnly((prev) => !prev)}
+          >
+            {showFavoritesOnly ? 'Showing Favorites' : 'Show Favorites'}
+          </button>
+        </div>
       </div>
 
       {!loading && !error && total > 0 && (
         <p className="results-summary">
-          Showing {((currentPage - 1) * itemsPerPage) + 1}-
-          {Math.min(currentPage * itemsPerPage, total)} of {total.toLocaleString()} properties
+          Showing {displayedProperties.length} of {total.toLocaleString()} properties
         </p>
       )}
 
@@ -125,19 +166,27 @@ function ListingsPage() {
 
       {!loading && !error && (
         <>
-          {properties.length === 0 ? (
+          {displayedProperties.length === 0 ? (
             <div className="no-results">
               No properties found matching your criteria. Try adjusting your filters.
             </div>
-          ) : (
+          ) : viewMode === 'list' ? (
             <div className="property-grid">
-              {properties.map((property) => (
-                <PropertyCard key={property.L_ListingID} property={property} />
+              {displayedProperties.map((property) => (
+                <PropertyCard
+                  key={property.L_ListingID}
+                  property={property}
+                  isFavorite={isFavorite(property.L_ListingID)}
+                  addFavorite={addFavorite}
+                  removeFavorite={removeFavorite}
+                />
               ))}
             </div>
+          ) : (
+            <MapView properties={displayedProperties} />
           )}
 
-          {properties.length > 0 && (
+          {viewMode === 'list' && displayedProperties.length > 0 && (
             <Pagination
               currentPage={currentPage}
               totalPages={totalPages}
@@ -150,11 +199,21 @@ function ListingsPage() {
   );
 }
 
-function PropertyCard({ property }) {
+function PropertyCard({ property, isFavorite, addFavorite, removeFavorite }) {
   const navigate = useNavigate();
 
   const handleClick = () => {
     navigate(`/property/${property.L_ListingID}`);
+  };
+
+  const handleFavoriteClick = (e) => {
+    e.stopPropagation();
+
+    if (isFavorite) {
+      removeFavorite(property.L_ListingID);
+    } else {
+      addFavorite(property.L_ListingID);
+    }
   };
 
   const photoUrl = getFirstPhotoUrl(property);
@@ -187,6 +246,15 @@ function PropertyCard({ property }) {
 
   return (
     <div className="property-card" onClick={handleClick}>
+      <button
+        type="button"
+        className={`favorite-btn ${isFavorite ? 'active' : ''}`}
+        onClick={handleFavoriteClick}
+        aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+      >
+        {isFavorite ? '❤' : '🤍'}
+      </button>
+
       <div className="property-image">
         {photoUrl ? (
           <img src={photoUrl} alt={address} />
