@@ -1,7 +1,14 @@
-import React from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import {
+  MapContainer,
+  Marker,
+  Popup,
+  TileLayer,
+  useMapEvents
+} from 'react-leaflet';
 import L from 'leaflet';
+import { fetchProperties } from '../api/client';
 import 'leaflet/dist/leaflet.css';
 import './MapView.css';
 
@@ -12,6 +19,9 @@ L.Icon.Default.mergeOptions({
   iconUrl: require('leaflet/dist/images/marker-icon.png'),
   shadowUrl: require('leaflet/dist/images/marker-shadow.png')
 });
+
+const DEFAULT_CENTER = [34.0522, -118.2437];
+const DEFAULT_ZOOM = 10;
 
 function getFirstPhotoUrl(property) {
   const raw = property?.L_Photos;
@@ -45,7 +55,7 @@ function getValidCoordinates(properties) {
 
 function getMapCenter(propertiesWithCoords) {
   if (propertiesWithCoords.length === 0) {
-    return [34.0522, -118.2437];
+    return DEFAULT_CENTER;
   }
 
   const avgLat =
@@ -59,67 +69,265 @@ function getMapCenter(propertiesWithCoords) {
   return [avgLat, avgLng];
 }
 
-function MapView({ properties }) {
-  const propertiesWithCoords = getValidCoordinates(properties);
-  const center = getMapCenter(propertiesWithCoords);
-
+function getBoundsFromProperties(propertiesWithCoords) {
   if (propertiesWithCoords.length === 0) {
-    return (
-      <div className="map-empty">
-        No mappable properties found for the current results.
-      </div>
-    );
+    return null;
   }
+
+  const latitudes = propertiesWithCoords.map((property) => property.lat);
+  const longitudes = propertiesWithCoords.map((property) => property.lng);
+
+  return [
+    [Math.min(...latitudes), Math.min(...longitudes)],
+    [Math.max(...latitudes), Math.max(...longitudes)]
+  ];
+}
+
+function getMapFetchLimit(zoom) {
+  if (zoom <= 8) {
+    return 150;
+  }
+
+  if (zoom <= 10) {
+    return 300;
+  }
+
+  if (zoom <= 12) {
+    return 500;
+  }
+
+  return 1000;
+}
+
+function formatVisibleCount(value) {
+  return Number(value || 0).toLocaleString();
+}
+
+function MapViewportWatcher({ initialBounds, onViewportChange }) {
+  const initializedRef = useRef(false);
+
+  const map = useMapEvents({
+    moveend() {
+      onViewportChange(map);
+    },
+    zoomend() {
+      onViewportChange(map);
+    }
+  });
+
+  React.useEffect(() => {
+    if (initializedRef.current) {
+      return;
+    }
+
+    initializedRef.current = true;
+
+    if (initialBounds) {
+      map.fitBounds(initialBounds, { padding: [40, 40] });
+    } else {
+      onViewportChange(map);
+    }
+  }, [initialBounds, map, onViewportChange]);
+
+  React.useEffect(() => {
+    if (!initializedRef.current) {
+      return;
+    }
+
+    onViewportChange(map);
+  }, [map, onViewportChange]);
+
+  return null;
+}
+
+function MapView({
+  initialProperties,
+  filters,
+  favorites,
+  showFavoritesOnly
+}) {
+  const initialPropertiesWithCoords = useMemo(
+    () => getValidCoordinates(initialProperties),
+    [initialProperties]
+  );
+  const initialCenter = useMemo(
+    () => getMapCenter(initialPropertiesWithCoords),
+    [initialPropertiesWithCoords]
+  );
+  const initialBounds = useMemo(
+    () => getBoundsFromProperties(initialPropertiesWithCoords),
+    [initialPropertiesWithCoords]
+  );
+
+  const [rawMapProperties, setRawMapProperties] = useState(initialPropertiesWithCoords);
+  const [mapMeta, setMapMeta] = useState({
+    totalInView: initialPropertiesWithCoords.length,
+    fetchedCount: initialPropertiesWithCoords.length,
+    limit: initialPropertiesWithCoords.length || getMapFetchLimit(DEFAULT_ZOOM),
+    zoom: DEFAULT_ZOOM
+  });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  const requestIdRef = useRef(0);
+
+  const displayedProperties = useMemo(
+    () =>
+      showFavoritesOnly
+        ? rawMapProperties.filter((property) => favorites.includes(property.L_ListingID))
+        : rawMapProperties,
+    [favorites, rawMapProperties, showFavoritesOnly]
+  );
+
+  const fetchViewportProperties = useCallback(
+    async (map) => {
+      const bounds = map.getBounds();
+      const zoom = map.getZoom();
+      const limit = getMapFetchLimit(zoom);
+      const requestId = requestIdRef.current + 1;
+
+      requestIdRef.current = requestId;
+
+      setLoading(true);
+      setError(null);
+
+      try {
+        const data = await fetchProperties({
+          ...filters,
+          limit,
+          offset: 0,
+          north: bounds.getNorth().toFixed(6),
+          south: bounds.getSouth().toFixed(6),
+          east: bounds.getEast().toFixed(6),
+          west: bounds.getWest().toFixed(6)
+        });
+
+        if (requestIdRef.current !== requestId) {
+          return;
+        }
+
+        const nextProperties = getValidCoordinates(data.results || []);
+
+        setRawMapProperties(nextProperties);
+        setMapMeta({
+          totalInView: data.total || 0,
+          fetchedCount: nextProperties.length,
+          limit: data.limit || limit,
+          zoom
+        });
+      } catch (fetchError) {
+        if (requestIdRef.current !== requestId) {
+          return;
+        }
+
+        setError('Unable to load listings for this area right now.');
+      } finally {
+        if (requestIdRef.current === requestId) {
+          setLoading(false);
+        }
+      }
+    },
+    [filters]
+  );
+
+  const isCapped = mapMeta.totalInView > mapMeta.fetchedCount;
 
   return (
     <div className="map-view-wrapper">
-      <MapContainer center={center} zoom={10} scrollWheelZoom={true} className="map-container">
-        <TileLayer
-          attribution='&copy; OpenStreetMap contributors'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
+      <div className="map-status-card">
+        <div>
+          <p className="map-status-title">
+            {showFavoritesOnly
+              ? `Showing ${formatVisibleCount(displayedProperties.length)} saved homes in this area`
+              : `Showing ${formatVisibleCount(displayedProperties.length)} listings in the current map area`}
+          </p>
+          <p className="map-status-subtitle">
+            Pan or zoom to load more homes where you are looking.
+            {!showFavoritesOnly && isCapped
+              ? ' Zoom in to reveal additional listings in dense areas.'
+              : ''}
+          </p>
+        </div>
 
-        {propertiesWithCoords.map((property) => {
-          const photoUrl = getFirstPhotoUrl(property);
-          const address =
-            property.L_Address || property.L_AddressStreet || 'Address unavailable';
+        <div className="map-status-meta">
+          {!showFavoritesOnly && (
+            <span>{formatVisibleCount(mapMeta.totalInView)} matches in view</span>
+          )}
+          <span>Zoom level {mapMeta.zoom}</span>
+        </div>
+      </div>
 
-          const city = property.L_City || 'Unknown City';
-          const state = property.L_State || '';
+      {error && <div className="map-empty">{error}</div>}
 
-          const price =
-            property.L_SystemPrice !== null && property.L_SystemPrice !== undefined
-              ? Number(property.L_SystemPrice).toLocaleString()
-              : 'N/A';
+      <div className="map-container-shell">
+        {loading && <div className="map-loading-badge">Updating map…</div>}
 
-          return (
-            <Marker
-              key={property.L_ListingID}
-              position={[property.lat, property.lng]}
-            >
-              <Popup>
-                <div className="map-popup">
-                  {photoUrl ? (
-                    <img src={photoUrl} alt={address} className="map-popup-image" />
-                  ) : (
-                    <div className="map-popup-no-image">No image available</div>
-                  )}
+        <MapContainer
+          center={initialCenter}
+          zoom={DEFAULT_ZOOM}
+          scrollWheelZoom={true}
+          className="map-container"
+        >
+          <TileLayer
+            attribution="&copy; OpenStreetMap contributors"
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          />
 
-                  <div className="map-popup-price">${price}</div>
-                  <div className="map-popup-address">{address}</div>
-                  <div className="map-popup-city">
-                    {city}
-                    {state ? `, ${state}` : ''}
+          <MapViewportWatcher
+            initialBounds={initialBounds}
+            onViewportChange={fetchViewportProperties}
+          />
+
+          {displayedProperties.map((property) => {
+            const photoUrl = getFirstPhotoUrl(property);
+            const address =
+              property.L_Address || property.L_AddressStreet || 'Address unavailable';
+
+            const city = property.L_City || 'Unknown City';
+            const state = property.L_State || '';
+
+            const price =
+              property.L_SystemPrice !== null && property.L_SystemPrice !== undefined
+                ? Number(property.L_SystemPrice).toLocaleString()
+                : 'N/A';
+
+            return (
+              <Marker
+                key={property.L_ListingID}
+                position={[property.lat, property.lng]}
+              >
+                <Popup>
+                  <div className="map-popup">
+                    {photoUrl ? (
+                      <img src={photoUrl} alt={address} className="map-popup-image" />
+                    ) : (
+                      <div className="map-popup-no-image">No image available</div>
+                    )}
+
+                    <div className="map-popup-price">${price}</div>
+                    <div className="map-popup-address">{address}</div>
+                    <div className="map-popup-city">
+                      {city}
+                      {state ? `, ${state}` : ''}
+                    </div>
+                    <Link to={`/property/${property.L_ListingID}`} className="map-popup-link">
+                      View details
+                    </Link>
                   </div>
-                  <Link to={`/property/${property.L_ListingID}`} className="map-popup-link">
-                    View details
-                  </Link>
-                </div>
-              </Popup>
-            </Marker>
-          );
-        })}
-      </MapContainer>
+                </Popup>
+              </Marker>
+            );
+          })}
+        </MapContainer>
+      </div>
+
+      {!loading && displayedProperties.length === 0 && !error && (
+        <div className="map-empty">
+          {showFavoritesOnly
+            ? 'No saved listings are visible in this part of the map yet.'
+            : 'No listings are currently visible in this map area. Try panning or zooming out.'}
+        </div>
+      )}
     </div>
   );
 }

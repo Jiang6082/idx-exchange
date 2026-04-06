@@ -105,14 +105,18 @@ router.get("/", async (req, res) => {
       maxPrice,
       beds,
       baths,
+      north,
+      south,
+      east,
+      west,
       sortBy,
       sortOrder,
     } = req.query;
 
-    if (Number.isNaN(limit) || limit < 1 || limit > 100) {
+    if (Number.isNaN(limit) || limit < 1 || limit > 1000) {
       return res
         .status(400)
-        .json({ error: "limit must be an integer between 1 and 100" });
+        .json({ error: "limit must be an integer between 1 and 1000" });
     }
 
     if (Number.isNaN(offset) || offset < 0) {
@@ -161,6 +165,31 @@ router.get("/", async (req, res) => {
         .json({ error: "minPrice cannot be greater than maxPrice" });
     }
 
+    const hasBounds =
+      north !== undefined ||
+      south !== undefined ||
+      east !== undefined ||
+      west !== undefined;
+
+    if (
+      hasBounds &&
+      [north, south, east, west].some(
+        (value) => value === undefined || value === "" || Number.isNaN(Number(value))
+      )
+    ) {
+      return res.status(400).json({
+        error: "north, south, east, and west must all be valid numbers",
+      });
+    }
+
+    if (hasBounds && Number(south) > Number(north)) {
+      return res.status(400).json({ error: "south cannot be greater than north" });
+    }
+
+    if (hasBounds && Number(west) > Number(east)) {
+      return res.status(400).json({ error: "west cannot be greater than east" });
+    }
+
     const conditions = [];
     const values = [];
 
@@ -192,6 +221,16 @@ router.get("/", async (req, res) => {
     if (baths !== undefined && baths !== "") {
       conditions.push("LM_Dec_3 >= ?");
       values.push(parseFloat(baths));
+    }
+
+    if (hasBounds) {
+      conditions.push("LMD_MP_Latitude IS NOT NULL");
+      conditions.push("LMD_MP_Longitude IS NOT NULL");
+      conditions.push("LMD_MP_Latitude != 0");
+      conditions.push("LMD_MP_Longitude != 0");
+      conditions.push("LMD_MP_Latitude BETWEEN ? AND ?");
+      conditions.push("LMD_MP_Longitude BETWEEN ? AND ?");
+      values.push(Number(south), Number(north), Number(west), Number(east));
     }
 
     const whereClause = conditions.length

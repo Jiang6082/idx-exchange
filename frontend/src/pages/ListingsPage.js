@@ -333,18 +333,24 @@ function ListingsPage() {
       {!loading && !error && total > 0 && (
         <div className="results-summary-shell">
           <p className="results-summary">
-            {showFavoritesOnly
+            {viewMode === 'map'
+              ? 'Map results update as you pan and zoom around the area.'
+              : showFavoritesOnly
               ? `Showing ${displayedProperties.length} favorite homes on this page`
               : `Showing ${displayedProperties.length} homes from page ${effectiveCurrentPage} of ${Math.max(effectiveTotalPages, 1)}`}
           </p>
           <div className="results-meta">
             <span>
-              {showFavoritesOnly
+              {viewMode === 'map'
+                ? 'Viewport-based map search is active'
+                : showFavoritesOnly
                 ? `${displayedProperties.length} favorites in current results`
                 : `${total.toLocaleString()} total matches`}
             </span>
             <span>
-              {showFavoritesOnly
+              {viewMode === 'map'
+                ? 'Zoom in to reveal more homes in dense areas'
+                : showFavoritesOnly
                 ? `${displayedProperties.filter((property) => {
                     const lat = Number(property.LMD_MP_Latitude);
                     const lng = Number(property.LMD_MP_Longitude);
@@ -383,7 +389,15 @@ function ListingsPage() {
               ))}
             </div>
           ) : (
-            <MapView properties={displayedProperties} />
+            <MapView
+              initialProperties={properties}
+              filters={{
+                ...filters,
+                ...(sortBy && { sortBy, sortOrder })
+              }}
+              favorites={favorites}
+              showFavoritesOnly={showFavoritesOnly}
+            />
           )}
 
           {viewMode === 'list' && displayedProperties.length > 0 && (
