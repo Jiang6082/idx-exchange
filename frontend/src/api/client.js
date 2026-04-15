@@ -1,46 +1,152 @@
-const API_BASE = ''; 
+const API_BASE = '';
+const DEFAULT_PROFILE = {
+  email: 'demo@idxexchange.local',
+  name: 'Guest Buyer'
+};
 
-export async function fetchProperties(params = {}) {
+function getActiveProfile() {
+  if (typeof window === 'undefined') {
+    return DEFAULT_PROFILE;
+  }
+
   try {
-    const query = new URLSearchParams(params).toString();
-    const url = `${API_BASE}/api/properties${query ? `?${query}` : ''}`;
-
-    const response = await fetch(url);
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    const saved = window.localStorage.getItem('idxActiveProfile');
+    if (!saved) {
+      return DEFAULT_PROFILE;
     }
+
+    const parsed = JSON.parse(saved);
+    return {
+      email: parsed?.email || DEFAULT_PROFILE.email,
+      name: parsed?.name || DEFAULT_PROFILE.name
+    };
+  } catch (error) {
+    return DEFAULT_PROFILE;
+  }
+}
+
+async function request(path, options = {}) {
+  try {
+    const profile = getActiveProfile();
+    const mergedHeaders = {
+      'Content-Type': 'application/json',
+      'x-user-email': profile.email,
+      'x-user-name': profile.name,
+      ...(options.headers || {})
+    };
+    const response = await fetch(`${API_BASE}${path}`, {
+      ...options,
+      headers: mergedHeaders
+    });
+
+    if (!response.ok) {
+      const text = typeof response.text === 'function' ? await response.text() : '';
+      throw new Error(text || `HTTP ${response.status}: ${response.statusText}`);
+    }
+
     return await response.json();
   } catch (error) {
     console.error('API Error:', error);
     throw error;
   }
+}
+
+export async function fetchProperties(params = {}) {
+  const query = new URLSearchParams(params).toString();
+  return request(`/api/properties${query ? `?${query}` : ''}`, {
+    headers: {}
+  });
+}
+
+export async function fetchMapProperties(params = {}) {
+  const query = new URLSearchParams(params).toString();
+  return request(`/api/properties?mapOnly=true${query ? `&${query}` : ''}`, {
+    headers: {}
+  });
+}
+
+export async function fetchCompareProperties(ids) {
+  const query = new URLSearchParams({
+    ids: ids.join(',')
+  }).toString();
+
+  return request(`/api/properties/compare?${query}`, {
+    headers: {}
+  });
 }
 
 export async function fetchPropertyDetail(listingId) {
-  try {
-    const response = await fetch(`${API_BASE}/api/properties/${listingId}`);
-    if (!response.ok) {
-      if (response.status === 404) {
-        throw new Error('Property not found');
-      }
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-    }
-    return await response.json();
-  } catch (error) {
-    console.error('API Error:', error);
-    throw error;
-  }
+  return request(`/api/properties/${listingId}`, {
+    headers: {}
+  });
 }
 
 export async function fetchOpenHouses(listingId) {
-  try {
-    const response = await fetch(`${API_BASE}/api/properties/${listingId}/openhouses`);
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-    }
-    return await response.json();
-  } catch (error) {
-    console.error('API Error:', error);
-    throw error;
-  }
+  return request(`/api/properties/${listingId}/openhouses`, {
+    headers: {}
+  });
 }
+
+export async function fetchCurrentUserState() {
+  return request('/api/users/me');
+}
+
+export async function fetchFavoriteProperties(params = {}) {
+  const query = new URLSearchParams(params).toString();
+  return request(`/api/users/me/favorite-properties${query ? `?${query}` : ''}`);
+}
+
+export async function updateProfile(profile) {
+  return request('/api/users/me', {
+    method: 'PUT',
+    body: JSON.stringify(profile)
+  });
+}
+
+export async function addFavorite(listingId) {
+  return request('/api/users/me/favorites', {
+    method: 'POST',
+    body: JSON.stringify({ listingId })
+  });
+}
+
+export async function removeFavorite(listingId) {
+  return request(`/api/users/me/favorites/${listingId}`, {
+    method: 'DELETE'
+  });
+}
+
+export async function saveSearch(payload) {
+  return request('/api/users/me/saved-searches', {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  });
+}
+
+export async function updateSavedSearch(id, payload) {
+  return request(`/api/users/me/saved-searches/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload)
+  });
+}
+
+export async function deleteSavedSearch(id) {
+  return request(`/api/users/me/saved-searches/${id}`, {
+    method: 'DELETE'
+  });
+}
+
+export async function recordPropertyView(listingId) {
+  return request('/api/users/me/views', {
+    method: 'POST',
+    body: JSON.stringify({ listingId })
+  });
+}
+
+export async function markAlertRead(alertId) {
+  return request(`/api/users/me/alerts/${alertId}/read`, {
+    method: 'PATCH'
+  });
+}
+
+export { getActiveProfile, DEFAULT_PROFILE };

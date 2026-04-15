@@ -13,6 +13,8 @@ jest.mock(
 
 jest.mock('./pages/ListingsPage', () => () => <h1>Property Listings</h1>);
 jest.mock('./pages/PropertyDetailPage', () => () => <div>Property Detail Page</div>);
+jest.mock('./pages/SavedHomesPage', () => () => <div>Saved Homes Page</div>);
+jest.mock('./components/AppHeader', () => () => <div>App Header</div>);
 
 import App from './App';
 

@@ -17,12 +17,17 @@ class ErrorBoundary extends React.Component {
   render() {
     if (this.state.hasError) {
       return (
-        <div style={{ padding: '40px', textAlign: 'center' }}>
+        <div className="panel" style={{ maxWidth: 720, margin: '4rem auto', padding: '2rem', textAlign: 'center' }}>
           <h2>Something went wrong</h2>
-          <p>We're sorry for the inconvenience. Please refresh the page.</p>
-          <button onClick={() => window.location.reload()}>
-            Refresh Page
-          </button>
+          <p>We hit an unexpected error. You can refresh the page or jump back to browsing listings.</p>
+          <div style={{ display: 'flex', justifyContent: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+            <button className="btn-primary" onClick={() => window.location.reload()}>
+              Refresh Page
+            </button>
+            <button className="btn-secondary" onClick={() => (window.location.href = '/')}>
+              Go to Listings
+            </button>
+          </div>
         </div>
       );
     }

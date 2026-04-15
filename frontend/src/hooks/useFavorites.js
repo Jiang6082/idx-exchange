@@ -1,44 +1,74 @@
 import { useEffect, useState } from 'react';
-
-const STORAGE_KEY = 'favoriteProperties';
+import {
+  addFavorite as addFavoriteRequest,
+  fetchCurrentUserState,
+  removeFavorite as removeFavoriteRequest
+} from '../api/client';
 
 export function useFavorites() {
   const [favorites, setFavorites] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) {
+    let cancelled = false;
+
+    async function loadFavorites() {
       try {
-        setFavorites(JSON.parse(saved));
+        const state = await fetchCurrentUserState();
+        if (!cancelled) {
+          setFavorites(state.favorites || []);
+        }
       } catch (error) {
-        console.error('Failed to parse favorites from localStorage:', error);
+        console.error('Failed to load favorites:', error);
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
     }
+
+    loadFavorites();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  const saveFavorites = (newFavorites) => {
-    setFavorites(newFavorites);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(newFavorites));
-  };
+  const addFavorite = async (propertyId) => {
+    if (favorites.includes(propertyId)) {
+      return;
+    }
 
-  const addFavorite = (propertyId) => {
-    if (!favorites.includes(propertyId)) {
-      saveFavorites([...favorites, propertyId]);
+    const nextFavorites = [...favorites, propertyId];
+    setFavorites(nextFavorites);
+
+    try {
+      await addFavoriteRequest(propertyId);
+    } catch (error) {
+      setFavorites(favorites);
+      throw error;
     }
   };
 
-  const removeFavorite = (propertyId) => {
-    saveFavorites(favorites.filter((id) => id !== propertyId));
+  const removeFavorite = async (propertyId) => {
+    const nextFavorites = favorites.filter((id) => id !== propertyId);
+    setFavorites(nextFavorites);
+
+    try {
+      await removeFavoriteRequest(propertyId);
+    } catch (error) {
+      setFavorites(favorites);
+      throw error;
+    }
   };
 
-  const isFavorite = (propertyId) => {
-    return favorites.includes(propertyId);
-  };
+  const isFavorite = (propertyId) => favorites.includes(propertyId);
 
   return {
     favorites,
     addFavorite,
     removeFavorite,
-    isFavorite
+    isFavorite,
+    loading
   };
 }

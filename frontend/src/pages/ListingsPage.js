@@ -1,26 +1,36 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { fetchProperties } from '../api/client';
+import {
+  deleteSavedSearch,
+  fetchCompareProperties,
+  fetchProperties,
+  saveSearch,
+  updateSavedSearch
+} from '../api/client';
 import PropertyFilters from '../components/PropertyFilters';
 import Pagination from '../components/Pagination';
 import MapView from '../components/MapView';
+import { GridSkeleton } from '../components/LoadingSkeleton';
+import { useToast } from '../components/ToastContext';
+import { useAccount } from '../hooks/useAccount';
 import { useFavorites } from '../hooks/useFavorites';
 import './ListingsPage.css';
 
-function getFirstPhotoUrl(property) {
+function getPhotoUrls(property) {
   const raw = property?.L_Photos;
-  if (!raw || typeof raw !== 'string') return null;
+  if (!raw || typeof raw !== 'string') return [];
 
   try {
     const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed) && parsed.length > 0) {
-      return parsed[0];
-    }
+    return Array.isArray(parsed) ? parsed : [];
   } catch (error) {
     console.error('Failed to parse L_Photos:', error);
+    return [];
   }
+}
 
-  return null;
+function getFirstPhotoUrl(property) {
+  return getPhotoUrls(property)[0] || null;
 }
 
 function formatCurrency(value) {
@@ -70,6 +80,7 @@ function getLocationLabel(property) {
 
 function getActiveFilterChips(filters) {
   const labels = {
+    q: 'Search',
     city: 'City',
     zipcode: 'ZIP',
     minPrice: 'Min',
@@ -86,6 +97,22 @@ function getActiveFilterChips(filters) {
         ? formatCurrency(value)
         : value
   }));
+}
+
+function calculateMortgage(price) {
+  const amount = Number(price);
+  if (Number.isNaN(amount) || amount <= 0) {
+    return null;
+  }
+
+  const loanAmount = amount * 0.8;
+  const monthlyRate = 0.065 / 12;
+  const payments = 30 * 12;
+  const payment =
+    (loanAmount * monthlyRate * (1 + monthlyRate) ** payments) /
+    ((1 + monthlyRate) ** payments - 1);
+
+  return Math.round(payment);
 }
 
 function HeartIcon({ active }) {
@@ -107,29 +134,45 @@ function HeartIcon({ active }) {
   );
 }
 
+const RECENT_SEARCHES_KEY = 'idxRecentSearches';
+
 function ListingsPage() {
+  const navigate = useNavigate();
+  const { pushToast } = useToast();
   const [properties, setProperties] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-
+  const [analytics, setAnalytics] = useState(null);
   const [total, setTotal] = useState(0);
   const [filters, setFilters] = useState({});
   const [currentPage, setCurrentPage] = useState(1);
-
   const [sortBy, setSortBy] = useState('');
   const [sortOrder, setSortOrder] = useState('ASC');
-
   const [viewMode, setViewMode] = useState('list');
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
+  const [compareIds, setCompareIds] = useState([]);
+  const [compareProperties, setCompareProperties] = useState([]);
+  const [showCompareDifferencesOnly, setShowCompareDifferencesOnly] = useState(false);
+  const [saveSearchName, setSaveSearchName] = useState('');
+  const [saveSearchMessage, setSaveSearchMessage] = useState('');
+  const [recentSearches, setRecentSearches] = useState(() => {
+    try {
+      const saved = window.localStorage.getItem(RECENT_SEARCHES_KEY);
+      return saved ? JSON.parse(saved) : [];
+    } catch (error) {
+      return [];
+    }
+  });
 
   const itemsPerPage = 20;
 
-  const {
-    favorites,
-    addFavorite,
-    removeFavorite,
-    isFavorite
-  } = useFavorites();
+  const { favorites, addFavorite, removeFavorite, isFavorite } = useFavorites();
+  const { profile, setProfile, accountState, setAccountState } = useAccount();
+  const [draftProfile, setDraftProfile] = useState(profile);
+
+  useEffect(() => {
+    setDraftProfile(profile);
+  }, [profile]);
 
   useEffect(() => {
     let cancelled = false;
@@ -144,6 +187,7 @@ function ListingsPage() {
           ...filters,
           limit: itemsPerPage,
           offset,
+          includeAnalytics: true,
           ...(sortBy && { sortBy, sortOrder })
         };
 
@@ -152,6 +196,7 @@ function ListingsPage() {
         if (!cancelled) {
           setProperties(data.results || []);
           setTotal(data.total || 0);
+          setAnalytics(data.analytics || null);
         }
       } catch (err) {
         if (!cancelled) {
@@ -171,22 +216,33 @@ function ListingsPage() {
     };
   }, [filters, currentPage, sortBy, sortOrder]);
 
-  const handleSearch = (newFilters) => {
-    setFilters(newFilters);
-    setCurrentPage(1);
-  };
+  useEffect(() => {
+    let cancelled = false;
 
-  const handlePageChange = (newPage) => {
-    setCurrentPage(newPage);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
+    async function loadCompareProperties() {
+      if (compareIds.length < 2) {
+        setCompareProperties([]);
+        return;
+      }
 
-  const handleRemoveFilter = (filterKey) => {
-    const nextFilters = { ...filters };
-    delete nextFilters[filterKey];
-    setFilters(nextFilters);
-    setCurrentPage(1);
-  };
+      try {
+        const data = await fetchCompareProperties(compareIds);
+        if (!cancelled) {
+          setCompareProperties(data.results || []);
+        }
+      } catch (compareError) {
+        if (!cancelled) {
+          pushToast('Unable to load comparison homes right now.', 'error');
+        }
+      }
+    }
+
+    loadCompareProperties();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [compareIds, pushToast]);
 
   const displayedProperties = useMemo(
     () =>
@@ -202,18 +258,141 @@ function ListingsPage() {
     ? Math.max(1, Math.ceil(displayedProperties.length / itemsPerPage))
     : totalPages;
   const effectiveCurrentPage = showFavoritesOnly ? 1 : currentPage;
-  const priceValues = properties
-    .map((property) => Number(property.L_SystemPrice))
-    .filter((value) => !Number.isNaN(value) && value > 0);
-  const averagePrice =
-    priceValues.length > 0
-      ? Math.round(priceValues.reduce((sum, value) => sum + value, 0) / priceValues.length)
-      : null;
   const mapCount = properties.filter((property) => {
     const lat = Number(property.LMD_MP_Latitude);
     const lng = Number(property.LMD_MP_Longitude);
     return !Number.isNaN(lat) && !Number.isNaN(lng) && lat !== 0 && lng !== 0;
   }).length;
+  const compareSelectionCount = compareIds.length;
+
+  const handleSearch = (newFilters) => {
+    setFilters(newFilters);
+    setCurrentPage(1);
+
+    const label =
+      newFilters.q ||
+      newFilters.city ||
+      newFilters.zipcode ||
+      `${Object.keys(newFilters).length || 0} filters`;
+    const nextRecent = [
+      { label, filters: newFilters },
+      ...recentSearches.filter(
+        (entry) => JSON.stringify(entry.filters) !== JSON.stringify(newFilters)
+      )
+    ].slice(0, 6);
+    setRecentSearches(nextRecent);
+    window.localStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify(nextRecent));
+  };
+
+  const handlePageChange = (newPage) => {
+    setCurrentPage(newPage);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleRemoveFilter = (filterKey) => {
+    const nextFilters = { ...filters };
+    delete nextFilters[filterKey];
+    setFilters(nextFilters);
+    setCurrentPage(1);
+  };
+
+  const handleToggleCompare = (propertyId) => {
+    setCompareIds((prev) => {
+      if (prev.includes(propertyId)) {
+        return prev.filter((id) => id !== propertyId);
+      }
+
+      if (prev.length >= 4) {
+        pushToast('You can compare up to four homes at a time.', 'info');
+        return prev;
+      }
+
+      return [...prev, propertyId];
+    });
+  };
+
+  const handleSaveSearch = async () => {
+    try {
+      const nextName =
+        saveSearchName.trim() ||
+        `${filters.city || filters.q || 'Market'} homes ${
+          Object.keys(filters).length > 0 ? 'search' : 'watchlist'
+        }`;
+      const result = await saveSearch({
+        name: nextName,
+        filters: {
+          ...filters,
+          ...(sortBy && { sortBy, sortOrder })
+        },
+        alertEnabled: true
+      });
+
+      setAccountState((prev) => ({
+        ...prev,
+        savedSearches: [
+          {
+            ...result,
+            lastSeenCount: total
+          },
+          ...(prev.savedSearches || [])
+        ]
+      }));
+      setSaveSearchName('');
+      setSaveSearchMessage('Search saved to your account.');
+      pushToast('Saved search added to your account.', 'success');
+      window.setTimeout(() => setSaveSearchMessage(''), 2200);
+    } catch (saveError) {
+      setSaveSearchMessage('Unable to save this search right now.');
+      pushToast('Unable to save this search right now.', 'error');
+    }
+  };
+
+  const handleToggleSavedSearchAlert = async (search) => {
+    const nextValue = !search.alertEnabled;
+    await updateSavedSearch(search.id, { alertEnabled: nextValue });
+    setAccountState((prev) => ({
+      ...prev,
+      savedSearches: prev.savedSearches.map((item) =>
+        item.id === search.id ? { ...item, alertEnabled: nextValue } : item
+      )
+    }));
+    pushToast(nextValue ? 'Search alerts enabled.' : 'Search alerts paused.', 'success');
+  };
+
+  const handleApplySavedSearch = (search) => {
+    const nextFilters = { ...(search.filters || {}) };
+    const nextSortBy = nextFilters.sortBy || '';
+    const nextSortOrder = nextFilters.sortOrder || 'ASC';
+    delete nextFilters.sortBy;
+    delete nextFilters.sortOrder;
+    setFilters(nextFilters);
+    setSortBy(nextSortBy);
+    setSortOrder(nextSortOrder);
+    setCurrentPage(1);
+  };
+
+  const handleDeleteSavedSearch = async (searchId) => {
+    await deleteSavedSearch(searchId);
+    setAccountState((prev) => ({
+      ...prev,
+      savedSearches: prev.savedSearches.filter((item) => item.id !== searchId)
+    }));
+    pushToast('Saved search removed.', 'success');
+  };
+
+  const handleSaveProfile = async (event) => {
+    event.preventDefault();
+    await setProfile(draftProfile);
+    pushToast('Account profile updated.', 'success');
+  };
+
+  const shouldShowCompareField = (fieldAccessor) => {
+    if (!showCompareDifferencesOnly) {
+      return true;
+    }
+
+    return new Set(compareProperties.map(fieldAccessor)).size > 1;
+  };
 
   return (
     <div className="listings-page">
@@ -222,8 +401,8 @@ function ListingsPage() {
           <span className="hero-eyebrow">Curated Market Search</span>
           <h1>Property Listings</h1>
           <p className="hero-subtitle">
-            Explore active homes with map-first browsing, favorites, and a cleaner
-            search experience built for quick comparison.
+            Explore active homes with saved searches, side-by-side comparison, account-backed
+            favorites, and map-first browsing built for smarter decisions.
           </p>
         </div>
 
@@ -242,14 +421,138 @@ function ListingsPage() {
           </div>
           <div className="hero-stat-card">
             <span className="hero-stat-value">
-              {averagePrice ? formatCurrency(averagePrice) : 'N/A'}
+              {analytics?.averagePrice ? formatCurrency(analytics.averagePrice) : 'N/A'}
             </span>
-            <span className="hero-stat-label">Average price on page</span>
+            <span className="hero-stat-label">Average market price</span>
           </div>
         </div>
       </section>
 
-      <PropertyFilters onSearch={handleSearch} />
+      <section className="account-shell">
+        <div className="account-card panel">
+          <div className="section-heading">
+            <div>
+              <span className="section-kicker">Account</span>
+              <h2>Your synced profile</h2>
+            </div>
+            <p>Favorites, saved searches, and recently viewed homes stay tied to this account.</p>
+          </div>
+
+          <form className="account-form" onSubmit={handleSaveProfile}>
+            <input
+              type="text"
+              value={draftProfile.name}
+              onChange={(event) =>
+                setDraftProfile((prev) => ({ ...prev, name: event.target.value }))
+              }
+              placeholder="Full name"
+            />
+            <input
+              type="email"
+              value={draftProfile.email}
+              onChange={(event) =>
+                setDraftProfile((prev) => ({ ...prev, email: event.target.value }))
+              }
+              placeholder="Email address"
+            />
+            <button type="submit" className="btn-primary">
+              Save account
+            </button>
+          </form>
+        </div>
+
+        <div className="saved-searches-card panel">
+          <div className="section-heading">
+            <div>
+              <span className="section-kicker">Saved searches</span>
+              <h2>Alerts and watchlists</h2>
+            </div>
+            <p>Save your current criteria and keep a lightweight alert list in your account.</p>
+          </div>
+
+          <div className="saved-search-create">
+            <input
+              type="text"
+              value={saveSearchName}
+              onChange={(event) => setSaveSearchName(event.target.value)}
+              placeholder="Name this search"
+            />
+            <button type="button" className="btn-primary" onClick={handleSaveSearch}>
+              Save current search
+            </button>
+          </div>
+
+          {saveSearchMessage && <p className="save-search-message">{saveSearchMessage}</p>}
+
+          <div className="saved-search-list">
+            {(accountState.savedSearches || []).length === 0 ? (
+              <p className="empty-copy">No saved searches yet.</p>
+            ) : (
+              accountState.savedSearches.map((search) => (
+                <div key={search.id} className="saved-search-item">
+                  <div>
+                    <strong>{search.name}</strong>
+                    <span>{Object.keys(search.filters || {}).length} filters saved</span>
+                  </div>
+                  <div className="saved-search-actions">
+                    <button type="button" onClick={() => handleApplySavedSearch(search)}>
+                      Apply
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleToggleSavedSearchAlert(search)}
+                    >
+                      {search.alertEnabled ? 'Alerts on' : 'Alerts off'}
+                    </button>
+                    <button type="button" onClick={() => handleDeleteSavedSearch(search.id)}>
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </section>
+
+      {analytics && (
+        <section className="analytics-grid">
+          <div className="analytics-card panel">
+            <span className="section-kicker">Market insight</span>
+            <h3>Average price</h3>
+            <strong>{formatCurrency(analytics.averagePrice)}</strong>
+          </div>
+          <div className="analytics-card panel">
+            <span className="section-kicker">Market insight</span>
+            <h3>Median price</h3>
+            <strong>{formatCurrency(analytics.medianPrice)}</strong>
+          </div>
+          <div className="analytics-card panel">
+            <span className="section-kicker">Market insight</span>
+            <h3>Average price / sqft</h3>
+            <strong>
+              {analytics.averagePricePerSqft
+                ? `$${analytics.averagePricePerSqft}/sqft`
+                : 'N/A'}
+            </strong>
+          </div>
+          <div className="analytics-card panel">
+            <span className="section-kicker">Market insight</span>
+            <h3>Newest listing in this view</h3>
+            <strong>
+              {analytics.newestListingDate
+                ? formatListedDate(analytics.newestListingDate)
+                : 'N/A'}
+            </strong>
+          </div>
+        </section>
+      )}
+
+      <PropertyFilters
+        onSearch={handleSearch}
+        recentSearches={recentSearches}
+        onApplyRecentSearch={handleSearch}
+      />
 
       {activeFilterChips.length > 0 && (
         <div className="active-filters" aria-label="Active filters">
@@ -288,6 +591,7 @@ function ListingsPage() {
             <option value="ListingContractDate">Date listed</option>
             <option value="LM_Int2_3">Square footage</option>
             <option value="L_Keyword2">Bedrooms</option>
+            <option value="DaysOnMarket">Days on market</option>
           </select>
 
           {sortBy && (
@@ -336,34 +640,113 @@ function ListingsPage() {
             {viewMode === 'map'
               ? 'Map results update as you pan and zoom around the area.'
               : showFavoritesOnly
-              ? `Showing ${displayedProperties.length} favorite homes on this page`
-              : `Showing ${displayedProperties.length} homes from page ${effectiveCurrentPage} of ${Math.max(effectiveTotalPages, 1)}`}
+                ? `Showing ${displayedProperties.length} favorite homes on this page`
+                : `Showing ${displayedProperties.length} homes from page ${effectiveCurrentPage} of ${Math.max(effectiveTotalPages, 1)}`}
           </p>
           <div className="results-meta">
             <span>
               {viewMode === 'map'
                 ? 'Viewport-based map search is active'
                 : showFavoritesOnly
-                ? `${displayedProperties.length} favorites in current results`
-                : `${total.toLocaleString()} total matches`}
+                  ? `${displayedProperties.length} favorites in current results`
+                  : `${total.toLocaleString()} total matches`}
             </span>
             <span>
               {viewMode === 'map'
                 ? 'Zoom in to reveal more homes in dense areas'
                 : showFavoritesOnly
-                ? `${displayedProperties.filter((property) => {
-                    const lat = Number(property.LMD_MP_Latitude);
-                    const lng = Number(property.LMD_MP_Longitude);
-                    return !Number.isNaN(lat) && !Number.isNaN(lng) && lat !== 0 && lng !== 0;
-                  }).length} favorites with map coordinates`
-                : `${mapCount} with map coordinates`}
+                  ? `${displayedProperties.filter((property) => {
+                      const lat = Number(property.LMD_MP_Latitude);
+                      const lng = Number(property.LMD_MP_Longitude);
+                      return !Number.isNaN(lat) && !Number.isNaN(lng) && lat !== 0 && lng !== 0;
+                    }).length} favorites with map coordinates`
+                  : `${mapCount} with map coordinates`}
             </span>
           </div>
         </div>
       )}
 
-      {loading && <div className="loading panel">Loading properties...</div>}
+      {compareSelectionCount > 0 && (
+        <section className="compare-shell panel">
+          <div className="section-heading">
+            <div>
+              <span className="section-kicker">Compare homes</span>
+              <h2>{compareSelectionCount} selected</h2>
+            </div>
+            <p>Select up to four homes to compare pricing, size, and timing side by side.</p>
+          </div>
 
+          <label className="compare-diff-toggle">
+            <input
+              type="checkbox"
+              checked={showCompareDifferencesOnly}
+              onChange={(event) => setShowCompareDifferencesOnly(event.target.checked)}
+            />
+            Show only rows that differ
+          </label>
+
+          {compareProperties.length >= 2 ? (
+            <div className="compare-grid">
+              {compareProperties.map((property) => (
+                <div key={property.L_ListingID} className="compare-card">
+                  {getFirstPhotoUrl(property) ? (
+                    <img
+                      src={getFirstPhotoUrl(property)}
+                      alt={property.L_Address || 'Property'}
+                      className="compare-image"
+                    />
+                  ) : (
+                    <div className="compare-image compare-image-empty">No image</div>
+                  )}
+                  <strong>{property.L_Address || property.L_AddressStreet}</strong>
+                  <span>{formatCurrency(property.L_SystemPrice)}</span>
+                  {shouldShowCompareField((item) => item.L_Keyword2 || '—') && (
+                    <span>{property.L_Keyword2 || '—'} beds</span>
+                  )}
+                  {shouldShowCompareField((item) => item.LM_Dec_3 || '—') && (
+                    <span>{property.LM_Dec_3 || '—'} baths</span>
+                  )}
+                  {shouldShowCompareField((item) => item.LM_Int2_3 || '—') && (
+                    <span>
+                      {property.LM_Int2_3
+                        ? `${Number(property.LM_Int2_3).toLocaleString()} sqft`
+                        : 'Sqft unavailable'}
+                    </span>
+                  )}
+                  {shouldShowCompareField((item) => item.LotSizeAcres || '—') && (
+                    <span>
+                      {property.LotSizeAcres
+                        ? `${property.LotSizeAcres} acres`
+                        : 'Lot size unavailable'}
+                    </span>
+                  )}
+                  {shouldShowCompareField(
+                    (item) => calculateMortgage(item.L_SystemPrice) || '—'
+                  ) && (
+                    <span>
+                      {calculateMortgage(property.L_SystemPrice)
+                        ? `Est. $${calculateMortgage(property.L_SystemPrice).toLocaleString()}/mo`
+                        : 'Mortgage estimate unavailable'}
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    className="compare-link"
+                    onClick={() => navigate(`/property/${property.L_ListingID}`)}
+                  >
+                    Open details
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="empty-copy">Select at least two homes to load the comparison view.</p>
+          )}
+        </section>
+      )}
+
+      {loading && viewMode === 'list' && <GridSkeleton count={6} />}
+      {loading && viewMode === 'map' && <div className="loading panel">Loading properties...</div>}
       {error && <div className="error panel">{error}</div>}
 
       {!loading && !error && (
@@ -385,6 +768,12 @@ function ListingsPage() {
                   isFavorite={isFavorite(property.L_ListingID)}
                   addFavorite={addFavorite}
                   removeFavorite={removeFavorite}
+                  isCompared={compareIds.includes(property.L_ListingID)}
+                  onToggleCompare={handleToggleCompare}
+                  compareDisabled={
+                    compareIds.length >= 4 && !compareIds.includes(property.L_ListingID)
+                  }
+                  onOpen={() => navigate(`/property/${property.L_ListingID}`)}
                 />
               ))}
             </div>
@@ -413,20 +802,23 @@ function ListingsPage() {
   );
 }
 
-function PropertyCard({ property, isFavorite, addFavorite, removeFavorite }) {
-  const navigate = useNavigate();
-
-  const handleClick = () => {
-    navigate(`/property/${property.L_ListingID}`);
-  };
-
-  const handleFavoriteClick = (e) => {
+function PropertyCard({
+  property,
+  isFavorite,
+  addFavorite,
+  removeFavorite,
+  isCompared,
+  onToggleCompare,
+  compareDisabled,
+  onOpen
+}) {
+  const handleFavoriteClick = async (e) => {
     e.stopPropagation();
 
     if (isFavorite) {
-      removeFavorite(property.L_ListingID);
+      await removeFavorite(property.L_ListingID);
     } else {
-      addFavorite(property.L_ListingID);
+      await addFavorite(property.L_ListingID);
     }
   };
 
@@ -453,11 +845,11 @@ function PropertyCard({ property, isFavorite, addFavorite, removeFavorite }) {
   return (
     <article
       className="property-card"
-      onClick={handleClick}
+      onClick={onOpen}
       onKeyDown={(event) => {
         if (event.key === 'Enter' || event.key === ' ') {
           event.preventDefault();
-          handleClick();
+          onOpen();
         }
       }}
       role="button"
@@ -470,6 +862,18 @@ function PropertyCard({ property, isFavorite, addFavorite, removeFavorite }) {
         aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
       >
         <HeartIcon active={isFavorite} />
+      </button>
+
+      <button
+        type="button"
+        className={`compare-btn ${isCompared ? 'active' : ''}`}
+        onClick={(event) => {
+          event.stopPropagation();
+          onToggleCompare(property.L_ListingID);
+        }}
+        disabled={compareDisabled}
+      >
+        {isCompared ? 'Selected' : 'Compare'}
       </button>
 
       <div className="property-image">

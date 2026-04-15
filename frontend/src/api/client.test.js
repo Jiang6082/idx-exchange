@@ -2,6 +2,7 @@ import { fetchProperties } from './client';
 
 // Mock the global fetch function
 global.fetch = jest.fn();
+Storage.prototype.getItem = jest.fn(() => null);
 
 describe('fetchProperties', () => {
   beforeEach(() => {
@@ -25,7 +26,15 @@ describe('fetchProperties', () => {
 
     const data = await fetchProperties({ limit: 20 });
 
-    expect(fetch).toHaveBeenCalledWith('/api/properties?limit=20');
+    expect(fetch).toHaveBeenCalledWith(
+      '/api/properties?limit=20',
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          'x-user-email': 'demo@idxexchange.local',
+          'x-user-name': 'Guest Buyer'
+        })
+      })
+    );
     expect(data).toEqual(mockResponse);
   });
 

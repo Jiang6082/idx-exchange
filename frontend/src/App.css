@@ -3,6 +3,82 @@
   position: relative;
 }
 
+.panel {
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--line);
+  background: var(--surface);
+  backdrop-filter: blur(18px);
+  box-shadow: var(--shadow-md);
+}
+
+.btn-primary,
+.btn-secondary {
+  min-height: 2.85rem;
+  padding: 0.8rem 1.15rem;
+  border-radius: 999px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.btn-primary {
+  border: none;
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-strong) 100%);
+  color: white;
+}
+
+.btn-secondary {
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.86);
+  color: var(--text);
+}
+
+.app-header-shell {
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  backdrop-filter: blur(18px);
+  background: rgba(248, 251, 255, 0.7);
+  border-bottom: 1px solid rgba(30, 41, 59, 0.08);
+}
+
+.app-header-content {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0.95rem 1.25rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+
+.brand-mark {
+  font-family: 'Sora', sans-serif;
+  font-weight: 800;
+  text-decoration: none;
+  color: var(--headline);
+}
+
+.app-nav {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.app-nav-link {
+  text-decoration: none;
+  color: var(--text);
+  padding: 0.65rem 0.9rem;
+  border-radius: 999px;
+  border: 1px solid transparent;
+}
+
+.app-nav-link.active {
+  background: rgba(37, 99, 235, 0.1);
+  border-color: rgba(37, 99, 235, 0.12);
+  color: var(--accent-strong);
+  font-weight: 700;
+}
+
 .App::before,
 .App::after {
   content: '';
@@ -28,4 +104,32 @@
   right: -10rem;
   bottom: 6rem;
   background: rgba(56, 189, 248, 0.16);
+}
+
+.toast-stack {
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  display: grid;
+  gap: 0.7rem;
+  z-index: 1200;
+}
+
+.toast-item {
+  min-width: 240px;
+  max-width: 320px;
+  padding: 0.9rem 1rem;
+  border-radius: 16px;
+  color: white;
+  font-weight: 700;
+  box-shadow: var(--shadow-md);
+  background: rgba(15, 23, 42, 0.88);
+}
+
+.toast-item.success {
+  background: rgba(22, 101, 52, 0.9);
+}
+
+.toast-item.error {
+  background: rgba(185, 28, 28, 0.9);
 }

@@ -7,8 +7,9 @@ import {
   TileLayer,
   useMapEvents
 } from 'react-leaflet';
+import MarkerClusterGroup from 'react-leaflet-cluster';
 import L from 'leaflet';
-import { fetchProperties } from '../api/client';
+import { fetchMapProperties } from '../api/client';
 import 'leaflet/dist/leaflet.css';
 import './MapView.css';
 
@@ -22,6 +23,27 @@ L.Icon.Default.mergeOptions({
 
 const DEFAULT_CENTER = [34.0522, -118.2437];
 const DEFAULT_ZOOM = 10;
+
+function createClusterIcon(cluster) {
+  const count = cluster.getChildCount();
+  const size = count < 10 ? 'small' : count < 40 ? 'medium' : 'large';
+  const sizePx = count < 10 ? 52 : count < 40 ? 62 : 74;
+  const homesLabel = count === 1 ? 'home' : 'homes';
+
+  return L.divIcon({
+    html: `
+      <div class="map-cluster map-cluster-${size}">
+        <span class="map-cluster-glow"></span>
+        <span class="map-cluster-core">
+          <strong class="map-cluster-count">${count.toLocaleString()}</strong>
+          <span class="map-cluster-label">${homesLabel}</span>
+        </span>
+      </div>
+    `,
+    className: 'map-cluster-icon-shell',
+    iconSize: L.point(sizePx, sizePx, true)
+  });
+}
 
 function getFirstPhotoUrl(property) {
   const raw = property?.L_Photos;
@@ -192,7 +214,7 @@ function MapView({
       setError(null);
 
       try {
-        const data = await fetchProperties({
+        const data = await fetchMapProperties({
           ...filters,
           limit,
           offset: 0,
@@ -278,7 +300,14 @@ function MapView({
             onViewportChange={fetchViewportProperties}
           />
 
-          {displayedProperties.map((property) => {
+          <MarkerClusterGroup
+            chunkedLoading
+            showCoverageOnHover={false}
+            spiderfyOnMaxZoom={true}
+            maxClusterRadius={60}
+            iconCreateFunction={createClusterIcon}
+          >
+            {displayedProperties.map((property) => {
             const photoUrl = getFirstPhotoUrl(property);
             const address =
               property.L_Address || property.L_AddressStreet || 'Address unavailable';
@@ -317,7 +346,8 @@ function MapView({
                 </Popup>
               </Marker>
             );
-          })}
+            })}
+          </MarkerClusterGroup>
         </MapContainer>
       </div>
 

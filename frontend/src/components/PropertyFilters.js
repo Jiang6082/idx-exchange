@@ -1,15 +1,25 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import './PropertyFilters.css';
 
-function PropertyFilters({ onSearch }) {
-  const [filters, setFilters] = useState({
-    city: '',
-    zipcode: '',
-    minPrice: '',
-    maxPrice: '',
-    beds: '',
-    baths: ''
-  });
+const EMPTY_FILTERS = {
+  q: '',
+  city: '',
+  zipcode: '',
+  minPrice: '',
+  maxPrice: '',
+  beds: '',
+  baths: ''
+};
+
+function PropertyFilters({ onSearch, recentSearches = [], onApplyRecentSearch }) {
+  const [filters, setFilters] = useState(EMPTY_FILTERS);
+
+  useEffect(() => {
+    setFilters((prev) => ({
+      ...EMPTY_FILTERS,
+      ...prev
+    }));
+  }, []);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -24,8 +34,8 @@ function PropertyFilters({ onSearch }) {
 
     const cleanFilters = {};
     Object.keys(filters).forEach((key) => {
-      if (filters[key] && filters[key].trim() !== '') {
-        cleanFilters[key] = filters[key].trim();
+      if (filters[key] && String(filters[key]).trim() !== '') {
+        cleanFilters[key] = String(filters[key]).trim();
       }
     });
 
@@ -33,16 +43,7 @@ function PropertyFilters({ onSearch }) {
   };
 
   const handleClear = () => {
-    const emptyFilters = {
-      city: '',
-      zipcode: '',
-      minPrice: '',
-      maxPrice: '',
-      beds: '',
-      baths: ''
-    };
-
-    setFilters(emptyFilters);
+    setFilters(EMPTY_FILTERS);
     onSearch({});
   };
 
@@ -56,6 +57,42 @@ function PropertyFilters({ onSearch }) {
         <p>Filter by location, price, and home size to narrow the results quickly.</p>
       </div>
 
+      <div className="search-bar-shell">
+        <div className="filter-group search-wide">
+          <label htmlFor="q">Search by city, address, ZIP, or MLS</label>
+          <input
+            id="q"
+            type="text"
+            name="q"
+            value={filters.q}
+            onChange={handleChange}
+            placeholder="Pasadena, 90210, Main St, or MLS #"
+          />
+        </div>
+      </div>
+
+      {recentSearches.length > 0 && (
+        <div className="recent-searches">
+          <span className="recent-searches-label">Recent searches</span>
+          {recentSearches.map((search, index) => (
+            <button
+              key={`${search.label}-${index}`}
+              type="button"
+              className="recent-search-chip"
+              onClick={() => {
+                setFilters({
+                  ...EMPTY_FILTERS,
+                  ...(search.filters || {})
+                });
+                onApplyRecentSearch(search.filters || {});
+              }}
+            >
+              {search.label}
+            </button>
+          ))}
+        </div>
+      )}
+
       <div className="filter-row">
         <div className="filter-group">
           <label htmlFor="city">City</label>
@@ -65,7 +102,7 @@ function PropertyFilters({ onSearch }) {
             name="city"
             value={filters.city}
             onChange={handleChange}
-            placeholder="Austin"
+            placeholder="Pasadena"
           />
         </div>
 
@@ -127,7 +164,6 @@ function PropertyFilters({ onSearch }) {
             <option value="4">4+</option>
           </select>
         </div>
-
       </div>
 
       <div className="filter-actions">
