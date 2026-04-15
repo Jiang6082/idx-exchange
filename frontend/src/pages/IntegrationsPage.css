@@ -1,0 +1,38 @@
+.integrations-page {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 2rem 1.25rem 4rem;
+}
+
+.integrations-panel,
+.integrations-card {
+  padding: 1.35rem;
+}
+
+.integrations-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.integrations-card strong {
+  display: block;
+  margin: 0.45rem 0;
+}
+
+@media (max-width: 980px) {
+  .integrations-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .integrations-page {
+    padding: 1.2rem 0.9rem 3rem;
+  }
+
+  .integrations-grid {
+    grid-template-columns: 1fr;
+  }
+}

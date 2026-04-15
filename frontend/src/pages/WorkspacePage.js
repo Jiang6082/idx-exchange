@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
+  addBoardComment,
+  addBoardMember,
   addBoardItem,
   addFolderListing,
   askAssistant,
@@ -31,6 +33,8 @@ function WorkspacePage() {
   const [checklistListingId, setChecklistListingId] = useState('');
   const [boardDraft, setBoardDraft] = useState({ name: '', description: '' });
   const [boardItemDraft, setBoardItemDraft] = useState({ boardId: '', listingId: '', comment: '' });
+  const [boardMemberDrafts, setBoardMemberDrafts] = useState({});
+  const [boardCommentDrafts, setBoardCommentDrafts] = useState({});
   const [assistantPrompt, setAssistantPrompt] = useState('');
   const [assistantReply, setAssistantReply] = useState('');
 
@@ -359,16 +363,85 @@ function WorkspacePage() {
                 <div key={board.id} className="board-card">
                   <strong>{board.name}</strong>
                   <span>{board.description || 'Shared planning board'}</span>
-                  {(board.items || []).slice(0, 3).map((item) => (
+                  <div className="workspace-inline-action">
+                    <input
+                      type="email"
+                      placeholder="Invite collaborator by email"
+                      value={boardMemberDrafts[board.id] || ''}
+                      onChange={(event) =>
+                        setBoardMemberDrafts((prev) => ({
+                          ...prev,
+                          [board.id]: event.target.value
+                        }))
+                      }
+                    />
                     <button
-                      key={item.id}
                       type="button"
-                      className="mini-property-row"
-                      onClick={() => navigate(`/property/${item.listing_id}`)}
+                      className="btn-secondary"
+                      onClick={async () => {
+                        const email = boardMemberDrafts[board.id];
+                        if (!email) return;
+                        await addBoardMember(board.id, { email, roleName: 'editor' });
+                        pushToast('Collaborator invited to board.', 'success');
+                        setBoardMemberDrafts((prev) => ({ ...prev, [board.id]: '' }));
+                        loadWorkspace();
+                      }}
                     >
-                      <span>{item.property?.summary?.address || `MLS ${item.listing_id}`}</span>
-                      <small>{item.comment || item.reaction}</small>
+                      Invite
                     </button>
+                  </div>
+                  {(board.members || []).length > 0 && (
+                    <div className="member-row">
+                      {board.members.map((member) => (
+                        <span key={member.id} className="member-pill">
+                          {member.email}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  {(board.items || []).slice(0, 3).map((item) => (
+                    <div key={item.id} className="board-item-shell">
+                      <button
+                        type="button"
+                        className="mini-property-row"
+                        onClick={() => navigate(`/property/${item.listing_id}`)}
+                      >
+                        <span>{item.property?.summary?.address || `MLS ${item.listing_id}`}</span>
+                        <small>{item.comment || item.reaction}</small>
+                      </button>
+                      {(item.comments || []).slice(0, 2).map((comment) => (
+                        <span key={comment.id} className="board-comment">
+                          {comment.author_name}: {comment.body}
+                        </span>
+                      ))}
+                      <div className="workspace-inline-action">
+                        <input
+                          type="text"
+                          placeholder="Add comment"
+                          value={boardCommentDrafts[item.id] || ''}
+                          onChange={(event) =>
+                            setBoardCommentDrafts((prev) => ({
+                              ...prev,
+                              [item.id]: event.target.value
+                            }))
+                          }
+                        />
+                        <button
+                          type="button"
+                          className="btn-secondary"
+                          onClick={async () => {
+                            const body = boardCommentDrafts[item.id];
+                            if (!body) return;
+                            await addBoardComment(item.id, { body });
+                            pushToast('Comment added.', 'success');
+                            setBoardCommentDrafts((prev) => ({ ...prev, [item.id]: '' }));
+                            loadWorkspace();
+                          }}
+                        >
+                          Comment
+                        </button>
+                      </div>
+                    </div>
                   ))}
                 </div>
               ))}

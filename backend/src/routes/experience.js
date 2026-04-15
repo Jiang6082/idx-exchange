@@ -148,6 +148,26 @@ router.get("/workspace", requireUser, async (req, res) => {
     [req.user.id]
   );
 
+  const [boardMembers] = await pool.query(
+    `SELECT sbm.id, sbm.board_id, sbm.email, sbm.role_name, sbm.created_at
+     FROM shared_board_members sbm
+     INNER JOIN shared_boards sb ON sb.id = sbm.board_id
+     WHERE sb.user_id = ?
+     ORDER BY sbm.created_at DESC`,
+    [req.user.id]
+  );
+
+  const [boardComments] = await pool.query(
+    `SELECT sbc.id, sbi.board_id, sbc.board_item_id, sbc.author_name, sbc.body, sbc.created_at
+     FROM shared_board_comments sbc
+     INNER JOIN shared_board_items sbi ON sbi.id = sbc.board_item_id
+     INNER JOIN shared_boards sb ON sb.id = sbi.board_id
+     WHERE sb.user_id = ?
+     ORDER BY sbc.created_at DESC
+     LIMIT 50`,
+    [req.user.id]
+  );
+
   const [[preferences]] = await pool.query(
     `SELECT instant_alerts, daily_digest, price_drops, open_houses
      FROM notification_preferences
@@ -193,10 +213,12 @@ router.get("/workspace", requireUser, async (req, res) => {
     })),
     boards: boardRows.map((board) => ({
       ...board,
+      members: boardMembers.filter((member) => member.board_id === board.id),
       items: boardItems
         .filter((item) => item.board_id === board.id)
         .map((item) => ({
           ...item,
+          comments: boardComments.filter((comment) => comment.board_item_id === item.id),
           property:
             boardProperties.find(
               (property) => String(property.L_ListingID) === String(item.listing_id)
@@ -382,6 +404,44 @@ router.post("/boards/:id/items", requireUser, async (req, res) => {
      FROM shared_boards
      WHERE id = ? AND user_id = ?`,
     [req.params.id, listingId, comment || null, reaction, req.params.id, req.user.id]
+  );
+
+  return res.json({ ok: true });
+});
+
+router.post("/boards/:id/members", requireUser, async (req, res) => {
+  const email = String(req.body?.email || "").trim().toLowerCase();
+  const roleName = String(req.body?.roleName || "viewer").trim();
+
+  if (!email) {
+    return res.status(400).json({ error: "email is required" });
+  }
+
+  await pool.query(
+    `INSERT IGNORE INTO shared_board_members (board_id, email, role_name)
+     SELECT ?, ?, ?
+     FROM shared_boards
+     WHERE id = ? AND user_id = ?`,
+    [req.params.id, email, roleName, req.params.id, req.user.id]
+  );
+
+  return res.json({ ok: true });
+});
+
+router.post("/board-items/:id/comments", requireUser, async (req, res) => {
+  const body = String(req.body?.body || "").trim();
+
+  if (!body) {
+    return res.status(400).json({ error: "body is required" });
+  }
+
+  await pool.query(
+    `INSERT INTO shared_board_comments (board_item_id, author_name, body)
+     SELECT sbi.id, ?, ?
+     FROM shared_board_items sbi
+     INNER JOIN shared_boards sb ON sb.id = sbi.board_id
+     WHERE sbi.id = ? AND sb.user_id = ?`,
+    [req.user.name || req.user.email, body, req.params.id, req.user.id]
   );
 
   return res.json({ ok: true });

@@ -4,6 +4,7 @@ import {
   deleteSavedSearch,
   fetchCompareProperties,
   fetchProperties,
+  generateAiSearch,
   saveSearch,
   updateSavedSearch
 } from '../api/client';
@@ -165,6 +166,8 @@ function ListingsPage() {
   const [showCompareDifferencesOnly, setShowCompareDifferencesOnly] = useState(false);
   const [saveSearchName, setSaveSearchName] = useState('');
   const [saveSearchMessage, setSaveSearchMessage] = useState('');
+  const [aiSearchPrompt, setAiSearchPrompt] = useState('');
+  const [aiSearchMessage, setAiSearchMessage] = useState('');
   const [recentSearches, setRecentSearches] = useState(() => {
     try {
       const saved = window.localStorage.getItem(RECENT_SEARCHES_KEY);
@@ -470,6 +473,44 @@ function ListingsPage() {
             <span className="hero-stat-label">Average market price</span>
           </div>
         </div>
+      </section>
+
+      <section className="panel ai-search-panel">
+        <div className="section-heading">
+          <div>
+            <span className="section-kicker">AI search</span>
+            <h2>Describe the home you want in plain language</h2>
+          </div>
+          <p>Try prompts like “modern 4-bed in Pasadena under 1.8M with good space for entertaining.”</p>
+        </div>
+        <div className="account-form">
+          <input
+            type="text"
+            value={aiSearchPrompt}
+            onChange={(event) => setAiSearchPrompt(event.target.value)}
+            placeholder="Describe your ideal listing"
+          />
+          <button
+            type="button"
+            className="btn-primary"
+            onClick={async () => {
+              const aiResult = await generateAiSearch({ message: aiSearchPrompt });
+              const nextFilters = Object.fromEntries(
+                Object.entries(aiResult || {}).filter(
+                  ([key, value]) =>
+                    ['q', 'city', 'zipcode', 'minPrice', 'maxPrice', 'beds', 'baths'].includes(key) &&
+                    value
+                )
+              );
+              setFilters(nextFilters);
+              setCurrentPage(1);
+              setAiSearchMessage(aiResult.reasoning || 'AI search applied.');
+            }}
+          >
+            Apply AI search
+          </button>
+        </div>
+        {aiSearchMessage && <p className="save-search-message">{aiSearchMessage}</p>}
       </section>
 
       <section className="account-shell">

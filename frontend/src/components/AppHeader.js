@@ -1,7 +1,9 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
+import { getSessionToken } from '../api/client';
 
 function AppHeader() {
+  const isSignedIn = Boolean(getSessionToken());
   return (
     <header className="app-header-shell">
       <div className="app-header-content">
@@ -27,6 +29,12 @@ function AppHeader() {
           </NavLink>
           <NavLink to="/seller" className="app-nav-link">
             Seller
+          </NavLink>
+          <NavLink to="/integrations" className="app-nav-link">
+            Integrations
+          </NavLink>
+          <NavLink to="/auth" className="app-nav-link auth-link">
+            {isSignedIn ? 'Account' : 'Sign In'}
           </NavLink>
         </nav>
       </div>

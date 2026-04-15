@@ -7,6 +7,8 @@ import WorkspacePage from './pages/WorkspacePage';
 import InsightsPage from './pages/InsightsPage';
 import AgentDashboardPage from './pages/AgentDashboardPage';
 import SellerToolsPage from './pages/SellerToolsPage';
+import AuthPage from './pages/AuthPage';
+import IntegrationsPage from './pages/IntegrationsPage';
 import AppHeader from './components/AppHeader';
 import ErrorBoundary from './components/ErrorBoundary';
 import { ToastProvider } from './components/ToastContext';
@@ -26,6 +28,8 @@ function App() {
               <Route path="/insights" element={<InsightsPage />} />
               <Route path="/agent" element={<AgentDashboardPage />} />
               <Route path="/seller" element={<SellerToolsPage />} />
+              <Route path="/auth" element={<AuthPage />} />
+              <Route path="/integrations" element={<IntegrationsPage />} />
               <Route path="/property/:id" element={<PropertyDetailPage />} />
             </Routes>
           </div>

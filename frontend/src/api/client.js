@@ -3,6 +3,7 @@ const DEFAULT_PROFILE = {
   email: 'demo@idxexchange.local',
   name: 'Guest Buyer'
 };
+const SESSION_STORAGE_KEY = 'idxSessionToken';
 
 function getActiveProfile() {
   if (typeof window === 'undefined') {
@@ -25,13 +26,35 @@ function getActiveProfile() {
   }
 }
 
+export function getSessionToken() {
+  if (typeof window === 'undefined') {
+    return '';
+  }
+
+  return window.localStorage.getItem(SESSION_STORAGE_KEY) || '';
+}
+
+export function setSessionToken(token) {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  if (token) {
+    window.localStorage.setItem(SESSION_STORAGE_KEY, token);
+  } else {
+    window.localStorage.removeItem(SESSION_STORAGE_KEY);
+  }
+}
+
 async function request(path, options = {}) {
   try {
     const profile = getActiveProfile();
+    const sessionToken = getSessionToken();
     const mergedHeaders = {
       'Content-Type': 'application/json',
       'x-user-email': profile.email,
       'x-user-name': profile.name,
+      ...(sessionToken ? { 'x-session-token': sessionToken } : {}),
       ...(options.headers || {})
     };
     const response = await fetch(`${API_BASE}${path}`, {
@@ -89,6 +112,40 @@ export async function fetchOpenHouses(listingId) {
 
 export async function fetchCurrentUserState() {
   return request('/api/users/me');
+}
+
+export async function fetchAuthSession() {
+  return request('/api/auth/me');
+}
+
+export async function registerAccount(payload) {
+  const response = await request('/api/auth/register', {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  });
+  if (response.sessionToken) {
+    setSessionToken(response.sessionToken);
+  }
+  return response;
+}
+
+export async function loginAccount(payload) {
+  const response = await request('/api/auth/login', {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  });
+  if (response.sessionToken) {
+    setSessionToken(response.sessionToken);
+  }
+  return response;
+}
+
+export async function logoutAccount() {
+  const response = await request('/api/auth/logout', {
+    method: 'POST'
+  });
+  setSessionToken('');
+  return response;
 }
 
 export async function fetchFavoriteProperties(params = {}) {
@@ -216,6 +273,20 @@ export async function addBoardItem(boardId, payload) {
   });
 }
 
+export async function addBoardMember(boardId, payload) {
+  return request(`/api/experience/boards/${boardId}/members`, {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  });
+}
+
+export async function addBoardComment(itemId, payload) {
+  return request(`/api/experience/board-items/${itemId}/comments`, {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  });
+}
+
 export async function updateNotificationPreferences(payload) {
   return request('/api/experience/preferences', {
     method: 'PATCH',
@@ -244,4 +315,19 @@ export async function fetchSellerEstimate(params = {}) {
   return request(`/api/seller/estimate${query ? `?${query}` : ''}`);
 }
 
-export { getActiveProfile, DEFAULT_PROFILE };
+export async function fetchIntegrationsStatus() {
+  return request('/api/integrations/status');
+}
+
+export async function generateAiSearch(payload) {
+  return request('/api/ai/search', {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  });
+}
+
+export async function fetchAiPropertyExplanation(listingId) {
+  return request(`/api/ai/properties/${listingId}/explanation`);
+}
+
+export { getActiveProfile, DEFAULT_PROFILE, SESSION_STORAGE_KEY };

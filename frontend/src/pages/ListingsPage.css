@@ -11,6 +11,11 @@
   margin-bottom: 1.4rem;
 }
 
+.ai-search-panel {
+  padding: 1.35rem;
+  margin-bottom: 1.4rem;
+}
+
 .account-shell {
   grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
 }

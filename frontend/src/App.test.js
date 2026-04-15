@@ -18,6 +18,8 @@ jest.mock('./pages/WorkspacePage', () => () => <div>Workspace Page</div>);
 jest.mock('./pages/InsightsPage', () => () => <div>Insights Page</div>);
 jest.mock('./pages/AgentDashboardPage', () => () => <div>Agent Dashboard Page</div>);
 jest.mock('./pages/SellerToolsPage', () => () => <div>Seller Tools Page</div>);
+jest.mock('./pages/AuthPage', () => () => <div>Auth Page</div>);
+jest.mock('./pages/IntegrationsPage', () => () => <div>Integrations Page</div>);
 jest.mock('./components/AppHeader', () => () => <div>App Header</div>);
 
 import App from './App';

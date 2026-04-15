@@ -1,5 +1,10 @@
 import { useEffect, useState } from 'react';
-import { DEFAULT_PROFILE, fetchCurrentUserState, updateProfile } from '../api/client';
+import {
+  DEFAULT_PROFILE,
+  fetchAuthSession,
+  fetchCurrentUserState,
+  updateProfile
+} from '../api/client';
 
 const STORAGE_KEY = 'idxActiveProfile';
 
@@ -33,14 +38,17 @@ export function useAccount() {
     alerts: []
   });
   const [loading, setLoading] = useState(true);
+  const [sessionUser, setSessionUser] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
 
     async function loadState() {
       try {
+        const auth = await fetchAuthSession();
         const nextState = await fetchCurrentUserState();
         if (!cancelled) {
+          setSessionUser(auth.user || null);
           setAccountState({
             favorites: nextState.favorites || [],
             savedSearches: nextState.savedSearches || [],
@@ -81,6 +89,8 @@ export function useAccount() {
   return {
     profile,
     setProfile: saveProfile,
+    sessionUser,
+    setSessionUser,
     accountState,
     setAccountState,
     loading

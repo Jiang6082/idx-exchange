@@ -1,0 +1,37 @@
+.auth-page {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 2rem 1.25rem 4rem;
+}
+
+.auth-card {
+  padding: 1.5rem;
+}
+
+.auth-toggle,
+.auth-form {
+  display: grid;
+  gap: 0.85rem;
+  margin-top: 1rem;
+}
+
+.auth-toggle {
+  grid-template-columns: 1fr 1fr;
+}
+
+.auth-form input {
+  min-height: 3rem;
+  padding: 0.85rem 1rem;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+}
+
+.auth-message {
+  color: var(--danger);
+}
+
+@media (max-width: 768px) {
+  .auth-page {
+    padding: 1.2rem 0.9rem 3rem;
+  }
+}

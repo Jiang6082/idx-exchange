@@ -1,4 +1,5 @@
 const pool = require("../db/mysql");
+const crypto = require("crypto");
 
 function getUserIdentity(req) {
   const email = String(req.header("x-user-email") || "").trim().toLowerCase();
@@ -43,8 +44,73 @@ async function getOrCreateUser(identity) {
   };
 }
 
+function hashPassword(password, salt = crypto.randomBytes(16).toString("hex")) {
+  const passwordHash = crypto
+    .pbkdf2Sync(password, salt, 100000, 64, "sha512")
+    .toString("hex");
+
+  return {
+    passwordHash,
+    passwordSalt: salt,
+  };
+}
+
+function verifyPassword(password, hash, salt) {
+  const candidate = crypto
+    .pbkdf2Sync(password, salt, 100000, 64, "sha512")
+    .toString("hex");
+
+  return crypto.timingSafeEqual(Buffer.from(candidate), Buffer.from(hash));
+}
+
+async function createSession(userId) {
+  const sessionToken = crypto.randomBytes(32).toString("hex");
+  const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 14);
+
+  await pool.query(
+    `INSERT INTO app_sessions (user_id, session_token, expires_at)
+     VALUES (?, ?, ?)`,
+    [userId, sessionToken, expiresAt]
+  );
+
+  return {
+    sessionToken,
+    expiresAt,
+  };
+}
+
+async function getUserFromSession(req) {
+  const token = String(req.header("x-session-token") || "").trim();
+
+  if (!token) {
+    return null;
+  }
+
+  const [rows] = await pool.query(
+    `SELECT u.id, u.email, u.name, u.created_at, u.updated_at
+     FROM app_sessions s
+     INNER JOIN app_users u ON u.id = s.user_id
+     WHERE s.session_token = ?
+       AND s.expires_at > NOW()
+     LIMIT 1`,
+    [token]
+  );
+
+  return rows[0] || null;
+}
+
+async function destroySession(token) {
+  await pool.query("DELETE FROM app_sessions WHERE session_token = ?", [token]);
+}
+
 async function requireUser(req, res, next) {
   try {
+    const sessionUser = await getUserFromSession(req);
+    if (sessionUser) {
+      req.user = sessionUser;
+      return next();
+    }
+
     const identity = getUserIdentity(req);
 
     if (!identity) {
@@ -62,5 +128,10 @@ async function requireUser(req, res, next) {
 module.exports = {
   getUserIdentity,
   getOrCreateUser,
+  hashPassword,
+  verifyPassword,
+  createSession,
+  getUserFromSession,
+  destroySession,
   requireUser,
 };

@@ -22,6 +22,32 @@ async function initializeDatabase() {
   `);
 
   await pool.query(`
+    CREATE TABLE IF NOT EXISTS app_user_credentials (
+      user_id INT NOT NULL PRIMARY KEY,
+      password_hash VARCHAR(255) NOT NULL,
+      password_salt VARCHAR(255) NOT NULL,
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      CONSTRAINT fk_app_user_credentials_user
+        FOREIGN KEY (user_id) REFERENCES app_users(id)
+        ON DELETE CASCADE
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS app_sessions (
+      id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+      user_id INT NOT NULL,
+      session_token VARCHAR(255) NOT NULL UNIQUE,
+      expires_at DATETIME NOT NULL,
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      CONSTRAINT fk_app_sessions_user
+        FOREIGN KEY (user_id) REFERENCES app_users(id)
+        ON DELETE CASCADE
+    )
+  `);
+
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS user_favorites (
       id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
       user_id INT NOT NULL,
@@ -163,6 +189,33 @@ async function initializeDatabase() {
       created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
       CONSTRAINT fk_shared_board_items_board
         FOREIGN KEY (board_id) REFERENCES shared_boards(id)
+        ON DELETE CASCADE
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS shared_board_members (
+      id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+      board_id INT NOT NULL,
+      email VARCHAR(191) NOT NULL,
+      role_name VARCHAR(80) NOT NULL DEFAULT 'viewer',
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY unique_board_member (board_id, email),
+      CONSTRAINT fk_shared_board_members_board
+        FOREIGN KEY (board_id) REFERENCES shared_boards(id)
+        ON DELETE CASCADE
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS shared_board_comments (
+      id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+      board_item_id INT NOT NULL,
+      author_name VARCHAR(191) DEFAULT NULL,
+      body TEXT NOT NULL,
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      CONSTRAINT fk_shared_board_comments_item
+        FOREIGN KEY (board_item_id) REFERENCES shared_board_items(id)
         ON DELETE CASCADE
     )
   `);

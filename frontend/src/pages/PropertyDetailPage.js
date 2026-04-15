@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { MapContainer, Marker, TileLayer } from 'react-leaflet';
 import L from 'leaflet';
 import {
+  fetchAiPropertyExplanation,
   fetchOpenHouses,
   fetchPropertyDetail,
   recordPropertyView
@@ -94,6 +95,7 @@ function PropertyDetailPage() {
   const [shareMessage, setShareMessage] = useState('');
   const [activePhotoIndex, setActivePhotoIndex] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [aiExplanation, setAiExplanation] = useState(null);
 
   const { addFavorite, removeFavorite, isFavorite } = useFavorites();
 
@@ -117,6 +119,17 @@ function PropertyDetailPage() {
         }
 
         await recordPropertyView(id);
+
+        try {
+          const aiData = await fetchAiPropertyExplanation(id);
+          if (!cancelled) {
+            setAiExplanation(aiData);
+          }
+        } catch (aiError) {
+          if (!cancelled) {
+            setAiExplanation(null);
+          }
+        }
       } catch (err) {
         if (!cancelled) {
           setError(err.message || 'Failed to load property details');
@@ -572,6 +585,22 @@ function PropertyDetailPage() {
                     </span>
                   </div>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {aiExplanation && (
+            <div className="property-section">
+              <h2>AI Listing Read</h2>
+              <div className="detail-grid">
+                <div className="detail-item">
+                  <span className="detail-label">{aiExplanation.headline || 'Summary'}</span>
+                  <span className="detail-value">{aiExplanation.summary}</span>
+                </div>
+                <div className="detail-item">
+                  <span className="detail-label">Watchouts</span>
+                  <span className="detail-value">{aiExplanation.watchouts}</span>
+                </div>
               </div>
             </div>
           )}
