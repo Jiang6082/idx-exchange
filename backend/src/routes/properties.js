@@ -2,6 +2,10 @@ const express = require("express");
 const router = express.Router();
 const pool = require("../db/mysql");
 const { getCacheKey, readCache, writeCache } = require("../utils/cache");
+const {
+  serializePropertySummary,
+  serializePropertyDetail,
+} = require("../utils/propertyTransforms");
 
 const PROPERTY_LISTING_ID_COL = "L_ListingID";
 const OPENHOUSE_LISTING_ID_COL = "L_ListingID";
@@ -14,6 +18,14 @@ function validateListingId(id) {
     return { valid: false, error: "Listing ID is too long" };
   }
   return { valid: true };
+}
+
+function validateShortText(value, label, maxLength = 120) {
+  if (value !== undefined && value !== "" && String(value).trim().length > maxLength) {
+    return `${label} is too long`;
+  }
+
+  return null;
 }
 
 function buildPropertyWhereClause(query) {
@@ -152,6 +164,8 @@ function parseSearchQuery(req, res) {
     req.query.offset !== undefined ? parseInt(req.query.offset, 10) : 0;
 
   const {
+    q,
+    city,
     minPrice,
     maxPrice,
     beds,
@@ -197,6 +211,14 @@ function parseSearchQuery(req, res) {
 
   if (zipcode !== undefined && zipcode !== "" && String(zipcode).length > 20) {
     res.status(400).json({ error: "zipcode is too long" });
+    return null;
+  }
+
+  const textValidationError =
+    validateShortText(q, "q") || validateShortText(city, "city", 80);
+
+  if (textValidationError) {
+    res.status(400).json({ error: textValidationError });
     return null;
   }
 
@@ -310,7 +332,8 @@ router.get("/compare", async (req, res) => {
     return res.json({
       results: ids
         .map((id) => rows.find((row) => String(row[PROPERTY_LISTING_ID_COL]) === id))
-        .filter(Boolean),
+        .filter(Boolean)
+        .map(serializePropertySummary),
     });
   } catch (error) {
     console.error("Database error (compare):", error);
@@ -370,6 +393,18 @@ router.get("/:id", async (req, res) => {
         : null,
     ].filter(Boolean);
 
+    const [[neighborhoodStats]] = await pool.query(
+      `SELECT
+        COUNT(*) AS listingCount,
+        ROUND(AVG(L_SystemPrice)) AS averagePrice,
+        ROUND(AVG(LM_Int2_3)) AS averageSqft,
+        ROUND(AVG(DaysOnMarket)) AS averageDaysOnMarket
+       FROM rets_property
+       WHERE L_City = ?
+         AND L_SystemPrice IS NOT NULL`,
+      [property.L_City || ""]
+    );
+
     const [relatedProperties] = await pool.query(
       `SELECT *
        FROM rets_property
@@ -387,11 +422,13 @@ router.get("/:id", async (req, res) => {
       ]
     );
 
-    return res.json({
-      ...property,
-      relatedProperties,
-      timeline,
-    });
+    return res.json(
+      serializePropertyDetail(property, {
+        neighborhoodStats,
+        relatedProperties,
+        timeline,
+      })
+    );
   } catch (error) {
     console.error("Database error (property detail):", error);
     return res.status(500).json({ error: "Failed to fetch property details" });
@@ -425,10 +462,12 @@ router.get("/", async (req, res) => {
       const order =
         sortOrder && String(sortOrder).toUpperCase() === "DESC" ? "DESC" : "ASC";
       orderClause = `ORDER BY ${validSortFields[sortBy]} ${order}`;
+    } else if (sortBy) {
+      return res.status(400).json({ error: "Invalid sortBy field" });
     }
 
     const cacheKey = getCacheKey("properties", req.query);
-    const cached = readCache(cacheKey);
+    const cached = await readCache(cacheKey);
     if (cached) {
       return res.json(cached);
     }
@@ -456,12 +495,12 @@ router.get("/", async (req, res) => {
       total,
       limit,
       offset,
-      results: rows,
+      results: rows.map(serializePropertySummary),
       analytics:
         includeAnalytics === "true" ? buildSearchAnalytics(rows) : undefined,
     };
 
-    writeCache(cacheKey, payload, mapOnly === "true" ? 10000 : 15000);
+    await writeCache(cacheKey, payload, mapOnly === "true" ? 10000 : 15000);
 
     return res.json(payload);
   } catch (error) {

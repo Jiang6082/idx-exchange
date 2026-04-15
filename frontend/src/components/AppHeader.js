@@ -13,8 +13,20 @@ function AppHeader() {
           <NavLink to="/" end className="app-nav-link">
             Browse
           </NavLink>
+          <NavLink to="/workspace" className="app-nav-link">
+            Workspace
+          </NavLink>
           <NavLink to="/saved" className="app-nav-link">
             Saved Homes
+          </NavLink>
+          <NavLink to="/insights" className="app-nav-link">
+            Insights
+          </NavLink>
+          <NavLink to="/agent" className="app-nav-link">
+            Agent
+          </NavLink>
+          <NavLink to="/seller" className="app-nav-link">
+            Seller
           </NavLink>
         </nav>
       </div>

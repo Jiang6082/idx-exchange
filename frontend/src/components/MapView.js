@@ -24,24 +24,53 @@ L.Icon.Default.mergeOptions({
 const DEFAULT_CENTER = [34.0522, -118.2437];
 const DEFAULT_ZOOM = 10;
 
+function formatCompactPrice(value) {
+  const amount = Number(value);
+  if (Number.isNaN(amount) || amount <= 0) {
+    return 'Home';
+  }
+
+  if (amount >= 1000000) {
+    return `$${(amount / 1000000).toFixed(amount >= 10000000 ? 0 : 1)}M`;
+  }
+
+  if (amount >= 1000) {
+    return `$${Math.round(amount / 1000)}K`;
+  }
+
+  return `$${amount}`;
+}
+
 function createClusterIcon(cluster) {
   const count = cluster.getChildCount();
   const size = count < 10 ? 'small' : count < 40 ? 'medium' : 'large';
-  const sizePx = count < 10 ? 52 : count < 40 ? 62 : 74;
-  const homesLabel = count === 1 ? 'home' : 'homes';
+  const sizePx = count < 10 ? 38 : count < 40 ? 44 : 50;
 
   return L.divIcon({
     html: `
       <div class="map-cluster map-cluster-${size}">
-        <span class="map-cluster-glow"></span>
-        <span class="map-cluster-core">
-          <strong class="map-cluster-count">${count.toLocaleString()}</strong>
-          <span class="map-cluster-label">${homesLabel}</span>
-        </span>
+        <strong class="map-cluster-count">${count.toLocaleString()}</strong>
       </div>
     `,
     className: 'map-cluster-icon-shell',
     iconSize: L.point(sizePx, sizePx, true)
+  });
+}
+
+function createPropertyPriceIcon(property) {
+  const label = formatCompactPrice(property?.summary?.price || property?.L_SystemPrice);
+
+  return L.divIcon({
+    html: `
+      <div class="price-marker">
+        <span class="price-marker-pill">${label}</span>
+        <span class="price-marker-tip"></span>
+      </div>
+    `,
+    className: 'price-marker-shell',
+    iconSize: [66, 34],
+    iconAnchor: [33, 34],
+    popupAnchor: [0, -28]
   });
 }
 
@@ -125,7 +154,26 @@ function formatVisibleCount(value) {
   return Number(value || 0).toLocaleString();
 }
 
-function MapViewportWatcher({ initialBounds, onViewportChange }) {
+function parseBoundsString(boundsValue) {
+  if (!boundsValue) {
+    return null;
+  }
+
+  const values = String(boundsValue)
+    .split(',')
+    .map((value) => Number(value));
+
+  if (values.length !== 4 || values.some((value) => Number.isNaN(value))) {
+    return null;
+  }
+
+  return [
+    [values[1], values[3]],
+    [values[0], values[2]]
+  ];
+}
+
+function MapViewportWatcher({ initialBounds, initialZoom, onViewportChange }) {
   const initializedRef = useRef(false);
 
   const map = useMapEvents({
@@ -146,10 +194,12 @@ function MapViewportWatcher({ initialBounds, onViewportChange }) {
 
     if (initialBounds) {
       map.fitBounds(initialBounds, { padding: [40, 40] });
+    } else if (initialZoom) {
+      map.setZoom(initialZoom);
     } else {
       onViewportChange(map);
     }
-  }, [initialBounds, map, onViewportChange]);
+  }, [initialBounds, initialZoom, map, onViewportChange]);
 
   React.useEffect(() => {
     if (!initializedRef.current) {
@@ -166,7 +216,9 @@ function MapView({
   initialProperties,
   filters,
   favorites,
-  showFavoritesOnly
+  showFavoritesOnly,
+  initialViewport,
+  onViewportStateChange
 }) {
   const initialPropertiesWithCoords = useMemo(
     () => getValidCoordinates(initialProperties),
@@ -177,8 +229,14 @@ function MapView({
     [initialPropertiesWithCoords]
   );
   const initialBounds = useMemo(
-    () => getBoundsFromProperties(initialPropertiesWithCoords),
-    [initialPropertiesWithCoords]
+    () =>
+      parseBoundsString(initialViewport?.bounds) ||
+      getBoundsFromProperties(initialPropertiesWithCoords),
+    [initialPropertiesWithCoords, initialViewport?.bounds]
+  );
+  const initialZoom = useMemo(
+    () => Number(initialViewport?.zoom) || DEFAULT_ZOOM,
+    [initialViewport?.zoom]
   );
 
   const [rawMapProperties, setRawMapProperties] = useState(initialPropertiesWithCoords);
@@ -237,6 +295,15 @@ function MapView({
           limit: data.limit || limit,
           zoom
         });
+        onViewportStateChange?.({
+          bounds: [
+            bounds.getNorth().toFixed(5),
+            bounds.getSouth().toFixed(5),
+            bounds.getEast().toFixed(5),
+            bounds.getWest().toFixed(5)
+          ].join(','),
+          zoom
+        });
       } catch (fetchError) {
         if (requestIdRef.current !== requestId) {
           return;
@@ -249,7 +316,7 @@ function MapView({
         }
       }
     },
-    [filters]
+    [filters, onViewportStateChange]
   );
 
   const isCapped = mapMeta.totalInView > mapMeta.fetchedCount;
@@ -297,14 +364,16 @@ function MapView({
 
           <MapViewportWatcher
             initialBounds={initialBounds}
+            initialZoom={initialZoom}
             onViewportChange={fetchViewportProperties}
           />
 
           <MarkerClusterGroup
             chunkedLoading
-            showCoverageOnHover={false}
+            showCoverageOnHover={true}
             spiderfyOnMaxZoom={true}
             maxClusterRadius={60}
+            spiderLegPolylineOptions={{ weight: 2, color: '#0f766e', opacity: 0.6 }}
             iconCreateFunction={createClusterIcon}
           >
             {displayedProperties.map((property) => {
@@ -324,6 +393,7 @@ function MapView({
               <Marker
                 key={property.L_ListingID}
                 position={[property.lat, property.lng]}
+                icon={createPropertyPriceIcon(property)}
               >
                 <Popup>
                   <div className="map-popup">

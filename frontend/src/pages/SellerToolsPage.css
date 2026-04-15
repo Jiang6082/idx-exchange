@@ -1,0 +1,73 @@
+.seller-page {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 2rem 1.25rem 4rem;
+}
+
+.seller-panel,
+.seller-card {
+  padding: 1.35rem;
+}
+
+.seller-form,
+.seller-grid,
+.seller-comp-grid {
+  display: grid;
+  gap: 1rem;
+}
+
+.seller-form {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.seller-form input {
+  min-height: 3rem;
+  padding: 0.8rem 0.95rem;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.86);
+}
+
+.seller-grid {
+  grid-template-columns: 1fr 1fr;
+  margin: 1rem 0;
+}
+
+.seller-card strong {
+  display: block;
+  margin: 0.45rem 0;
+  font-family: 'Sora', sans-serif;
+  font-size: 1.5rem;
+}
+
+.seller-comp-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.seller-comp-card {
+  display: grid;
+  gap: 0.4rem;
+  padding: 0.95rem;
+  border-radius: 18px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.84);
+}
+
+@media (max-width: 980px) {
+  .seller-form,
+  .seller-comp-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .seller-page {
+    padding: 1.2rem 0.9rem 3rem;
+  }
+
+  .seller-form,
+  .seller-grid,
+  .seller-comp-grid {
+    grid-template-columns: 1fr;
+  }
+}

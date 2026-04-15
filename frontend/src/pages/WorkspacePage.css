@@ -1,0 +1,141 @@
+.workspace-page {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 2rem 1.25rem 4rem;
+}
+
+.workspace-hero,
+.workspace-panel {
+  padding: 1.35rem;
+}
+
+.workspace-hero h1,
+.workspace-panel h2 {
+  margin: 0.25rem 0 0;
+}
+
+.workspace-hero p,
+.workspace-panel p,
+.workspace-list-item span,
+.folder-card span,
+.board-card span,
+.assistant-reply {
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
+.workspace-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.workspace-column {
+  display: grid;
+  gap: 1rem;
+}
+
+.workspace-form-row {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+
+.workspace-form-row input,
+.workspace-form-row select,
+.assistant-shell textarea {
+  flex: 1;
+  min-height: 3rem;
+  min-width: 10rem;
+  padding: 0.8rem 0.95rem;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.86);
+}
+
+.assistant-shell textarea {
+  min-height: 120px;
+  resize: vertical;
+}
+
+.folder-grid,
+.workspace-list,
+.recommendation-grid {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.folder-card,
+.board-card,
+.workspace-list-item,
+.recommendation-card {
+  display: grid;
+  gap: 0.45rem;
+  padding: 0.95rem;
+  border-radius: 18px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.82);
+}
+
+.folder-card-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.mini-property-row {
+  display: grid;
+  gap: 0.2rem;
+  text-align: left;
+  padding: 0.7rem 0.8rem;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: rgba(248, 250, 252, 0.94);
+  cursor: pointer;
+}
+
+.mini-property-row small {
+  color: var(--text-muted);
+}
+
+.workspace-inline-action {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-top: 0.4rem;
+}
+
+.prefs-grid {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.pref-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: center;
+  padding: 0.85rem 0.95rem;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.8);
+}
+
+.assistant-shell {
+  display: grid;
+  gap: 0.85rem;
+}
+
+@media (max-width: 980px) {
+  .workspace-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .workspace-page {
+    padding: 1.2rem 0.9rem 3rem;
+  }
+}

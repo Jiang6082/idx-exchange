@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   deleteSavedSearch,
   fetchCompareProperties,
@@ -14,6 +14,10 @@ import { GridSkeleton } from '../components/LoadingSkeleton';
 import { useToast } from '../components/ToastContext';
 import { useAccount } from '../hooks/useAccount';
 import { useFavorites } from '../hooks/useFavorites';
+import {
+  buildSearchParams,
+  extractUiStateFromParams
+} from '../utils/searchState';
 import './ListingsPage.css';
 
 function getPhotoUrls(property) {
@@ -138,18 +142,24 @@ const RECENT_SEARCHES_KEY = 'idxRecentSearches';
 
 function ListingsPage() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialStateRef = useRef(extractUiStateFromParams(searchParams));
   const { pushToast } = useToast();
   const [properties, setProperties] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [analytics, setAnalytics] = useState(null);
   const [total, setTotal] = useState(0);
-  const [filters, setFilters] = useState({});
-  const [currentPage, setCurrentPage] = useState(1);
-  const [sortBy, setSortBy] = useState('');
-  const [sortOrder, setSortOrder] = useState('ASC');
-  const [viewMode, setViewMode] = useState('list');
-  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
+  const [filters, setFilters] = useState(initialStateRef.current.filters);
+  const [currentPage, setCurrentPage] = useState(initialStateRef.current.page);
+  const [sortBy, setSortBy] = useState(initialStateRef.current.sortBy);
+  const [sortOrder, setSortOrder] = useState(initialStateRef.current.sortOrder);
+  const [viewMode, setViewMode] = useState(initialStateRef.current.viewMode);
+  const [showFavoritesOnly, setShowFavoritesOnly] = useState(
+    initialStateRef.current.showFavoritesOnly
+  );
+  const [mapBounds, setMapBounds] = useState(initialStateRef.current.mapBounds);
+  const [mapZoom, setMapZoom] = useState(initialStateRef.current.mapZoom);
   const [compareIds, setCompareIds] = useState([]);
   const [compareProperties, setCompareProperties] = useState([]);
   const [showCompareDifferencesOnly, setShowCompareDifferencesOnly] = useState(false);
@@ -173,6 +183,34 @@ function ListingsPage() {
   useEffect(() => {
     setDraftProfile(profile);
   }, [profile]);
+
+  useEffect(() => {
+    const nextParams = buildSearchParams({
+      filters,
+      page: currentPage,
+      sortBy,
+      sortOrder,
+      viewMode,
+      showFavoritesOnly,
+      mapBounds,
+      mapZoom
+    });
+
+    if (nextParams.toString() !== searchParams.toString()) {
+      setSearchParams(nextParams, { replace: true });
+    }
+  }, [
+    currentPage,
+    filters,
+    mapBounds,
+    mapZoom,
+    searchParams,
+    setSearchParams,
+    showFavoritesOnly,
+    sortBy,
+    sortOrder,
+    viewMode
+  ]);
 
   useEffect(() => {
     let cancelled = false;
@@ -369,6 +407,7 @@ function ListingsPage() {
     setSortBy(nextSortBy);
     setSortOrder(nextSortOrder);
     setCurrentPage(1);
+    setViewMode('list');
   };
 
   const handleDeleteSavedSearch = async (searchId) => {
@@ -385,6 +424,11 @@ function ListingsPage() {
     await setProfile(draftProfile);
     pushToast('Account profile updated.', 'success');
   };
+
+  const handleMapViewportChange = useCallback(({ bounds, zoom }) => {
+    setMapBounds(bounds);
+    setMapZoom(String(zoom));
+  }, []);
 
   const shouldShowCompareField = (fieldAccessor) => {
     if (!showCompareDifferencesOnly) {
@@ -552,6 +596,7 @@ function ListingsPage() {
         onSearch={handleSearch}
         recentSearches={recentSearches}
         onApplyRecentSearch={handleSearch}
+        initialFilters={filters}
       />
 
       {activeFilterChips.length > 0 && (
@@ -786,6 +831,11 @@ function ListingsPage() {
               }}
               favorites={favorites}
               showFavoritesOnly={showFavoritesOnly}
+              initialViewport={{
+                bounds: mapBounds,
+                zoom: mapZoom
+              }}
+              onViewportStateChange={handleMapViewportChange}
             />
           )}
 

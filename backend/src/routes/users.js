@@ -1,66 +1,9 @@
 const express = require("express");
 const pool = require("../db/mysql");
+const { serializePropertySummary } = require("../utils/propertyTransforms");
+const { requireUser } = require("../utils/auth");
 
 const router = express.Router();
-
-function getUserIdentity(req) {
-  const email = String(req.header("x-user-email") || "").trim().toLowerCase();
-  const name = String(req.header("x-user-name") || "").trim();
-
-  if (!email) {
-    return null;
-  }
-
-  return { email, name: name || null };
-}
-
-async function getOrCreateUser(identity) {
-  const [existing] = await pool.query(
-    "SELECT id, email, name, created_at, updated_at FROM app_users WHERE email = ? LIMIT 1",
-    [identity.email]
-  );
-
-  if (existing.length > 0) {
-    const user = existing[0];
-
-    if (identity.name && identity.name !== user.name) {
-      await pool.query("UPDATE app_users SET name = ? WHERE id = ?", [
-        identity.name,
-        user.id,
-      ]);
-      user.name = identity.name;
-    }
-
-    return user;
-  }
-
-  const [insertResult] = await pool.query(
-    "INSERT INTO app_users (email, name) VALUES (?, ?)",
-    [identity.email, identity.name]
-  );
-
-  return {
-    id: insertResult.insertId,
-    email: identity.email,
-    name: identity.name,
-  };
-}
-
-async function requireUser(req, res, next) {
-  try {
-    const identity = getUserIdentity(req);
-
-    if (!identity) {
-      return res.status(400).json({ error: "User email is required" });
-    }
-
-    req.user = await getOrCreateUser(identity);
-    return next();
-  } catch (error) {
-    console.error("User route error:", error);
-    return res.status(500).json({ error: "Failed to load user account" });
-  }
-}
 
 router.get("/me", requireUser, async (req, res) => {
   const [favoritesRows] = await pool.query(
@@ -94,19 +37,84 @@ router.get("/me", requireUser, async (req, res) => {
     [req.user.id]
   );
 
+  const savedSearches = await Promise.all(
+    searchRows.map(async (row) => {
+      const filters =
+        typeof row.filters === "string" ? JSON.parse(row.filters) : row.filters || {};
+      const conditions = [];
+      const values = [];
+
+      if (filters.city) {
+        conditions.push("LOWER(TRIM(L_City)) = LOWER(TRIM(?))");
+        values.push(filters.city);
+      }
+
+      if (filters.q) {
+        const term = `%${filters.q}%`;
+        conditions.push(
+          "(LOWER(L_City) LIKE LOWER(?) OR LOWER(L_Address) LIKE LOWER(?) OR LOWER(L_AddressStreet) LIKE LOWER(?) OR LOWER(L_ListingID) LIKE LOWER(?) OR LOWER(L_DisplayId) LIKE LOWER(?))"
+        );
+        values.push(term, term, term, term, term);
+      }
+
+      if (filters.zipcode) {
+        conditions.push("L_Zip = ?");
+        values.push(filters.zipcode);
+      }
+
+      if (filters.minPrice) {
+        conditions.push("L_SystemPrice >= ?");
+        values.push(Number(filters.minPrice));
+      }
+
+      if (filters.maxPrice) {
+        conditions.push("L_SystemPrice <= ?");
+        values.push(Number(filters.maxPrice));
+      }
+
+      if (filters.beds) {
+        conditions.push("L_Keyword2 >= ?");
+        values.push(Number(filters.beds));
+      }
+
+      if (filters.baths) {
+        conditions.push("LM_Dec_3 >= ?");
+        values.push(Number(filters.baths));
+      }
+
+      const whereClause = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
+      const [[summaryRow]] = await pool.query(
+        `SELECT
+          COUNT(*) AS totalMatches,
+          ROUND(AVG(L_SystemPrice)) AS averagePrice,
+          MAX(COALESCE(ListingContractDate, OnMarketDate)) AS newestListingDate
+         FROM rets_property
+         ${whereClause}`,
+        values
+      );
+
+      return {
+        id: row.id,
+        name: row.name,
+        filters,
+        alertEnabled: Boolean(row.alert_enabled),
+        lastSeenCount: row.last_seen_count,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+        summary: {
+          totalMatches: summaryRow?.totalMatches || 0,
+          newMatches: Math.max(0, (summaryRow?.totalMatches || 0) - (row.last_seen_count || 0)),
+          averagePrice: summaryRow?.averagePrice || null,
+          newestListingDate: summaryRow?.newestListingDate || null,
+        },
+      };
+    })
+  );
+
   return res.json({
     user: req.user,
     favorites: favoritesRows.map((row) => row.listing_id),
-    savedSearches: searchRows.map((row) => ({
-      id: row.id,
-      name: row.name,
-      filters:
-        typeof row.filters === "string" ? JSON.parse(row.filters) : row.filters || {},
-      alertEnabled: Boolean(row.alert_enabled),
-      lastSeenCount: row.last_seen_count,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
-    })),
+    savedSearches,
     recentViews: viewRows,
     alerts: alertRows.map((row) => ({
       id: row.id,
@@ -116,6 +124,10 @@ router.get("/me", requireUser, async (req, res) => {
       isRead: Boolean(row.is_read),
       createdAt: row.created_at,
     })),
+    alertSummary: {
+      unreadCount: alertRows.filter((row) => !row.is_read).length,
+      totalAlerts: alertRows.length,
+    },
   });
 });
 
@@ -144,7 +156,7 @@ router.get("/me/favorite-properties", requireUser, async (req, res) => {
     total: countRow?.total || 0,
     limit,
     offset,
-    results: rows,
+    results: rows.map(serializePropertySummary),
   });
 });
 

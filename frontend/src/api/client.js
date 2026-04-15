@@ -149,4 +149,99 @@ export async function markAlertRead(alertId) {
   });
 }
 
+export async function fetchWorkspace() {
+  return request('/api/experience/workspace');
+}
+
+export async function createFolder(payload) {
+  return request('/api/experience/folders', {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  });
+}
+
+export async function addFolderListing(folderId, payload) {
+  return request(`/api/experience/folders/${folderId}/listings`, {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  });
+}
+
+export async function updateFolderListing(itemId, payload) {
+  return request(`/api/experience/folder-items/${itemId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload)
+  });
+}
+
+export async function scheduleTour(payload) {
+  return request('/api/experience/tours', {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  });
+}
+
+export async function updateTour(id, payload) {
+  return request(`/api/experience/tours/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload)
+  });
+}
+
+export async function createChecklistItem(payload) {
+  return request('/api/experience/checklist-items', {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  });
+}
+
+export async function updateChecklistItem(id, payload) {
+  return request(`/api/experience/checklist-items/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload)
+  });
+}
+
+export async function createBoard(payload) {
+  return request('/api/experience/boards', {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  });
+}
+
+export async function addBoardItem(boardId, payload) {
+  return request(`/api/experience/boards/${boardId}/items`, {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  });
+}
+
+export async function updateNotificationPreferences(payload) {
+  return request('/api/experience/preferences', {
+    method: 'PATCH',
+    body: JSON.stringify(payload)
+  });
+}
+
+export async function askAssistant(payload) {
+  return request('/api/experience/assistant', {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  });
+}
+
+export async function fetchAdminOverview() {
+  return request('/api/admin/overview');
+}
+
+export async function fetchMarketInsights(params = {}) {
+  const query = new URLSearchParams(params).toString();
+  return request(`/api/insights/market${query ? `?${query}` : ''}`);
+}
+
+export async function fetchSellerEstimate(params = {}) {
+  const query = new URLSearchParams(params).toString();
+  return request(`/api/seller/estimate${query ? `?${query}` : ''}`);
+}
+
 export { getActiveProfile, DEFAULT_PROFILE };

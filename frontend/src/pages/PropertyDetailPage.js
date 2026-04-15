@@ -155,7 +155,7 @@ function PropertyDetailPage() {
   }
 
   const favorite = isFavorite(property.L_ListingID);
-  const photoUrls = getPhotoUrls(property);
+  const photoUrls = property.media?.photos || getPhotoUrls(property);
   const activePhoto = photoUrls[activePhotoIndex] || null;
   const address =
     property.L_Address || property.L_AddressStreet || 'Address unavailable';
@@ -185,6 +185,11 @@ function PropertyDetailPage() {
   const hasMapCoordinates = !Number.isNaN(lat) && !Number.isNaN(lng) && lat !== 0 && lng !== 0;
   const relatedProperties = property.relatedProperties || [];
   const timeline = property.timeline || [];
+  const schools = property.schools || [];
+  const commuteContext = property.commuteContext || null;
+  const taxHistory = property.taxHistory || [];
+  const priceHistory = property.priceHistory || [];
+  const neighborhoodStats = property.neighborhoodStats || null;
 
   const galleryLabel =
     photoUrls.length > 0 ? `${activePhotoIndex + 1} / ${photoUrls.length}` : null;
@@ -495,6 +500,76 @@ function PropertyDetailPage() {
                   <div key={`${item.label}-${item.date}`} className="timeline-item">
                     <strong>{item.label}</strong>
                     <span>{formatDate(item.date)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {(schools.length > 0 || commuteContext || neighborhoodStats) && (
+            <div className="property-section">
+              <h2>Area Snapshot</h2>
+              <div className="detail-grid">
+                {schools.map((item) => (
+                  <div key={`${item.label}-${item.value}`} className="detail-item">
+                    <span className="detail-label">{item.label}</span>
+                    <span className="detail-value">{item.value}</span>
+                  </div>
+                ))}
+                {neighborhoodStats?.listingCount ? (
+                  <>
+                    <div className="detail-item">
+                      <span className="detail-label">Listings in this city</span>
+                      <span className="detail-value">
+                        {Number(neighborhoodStats.listingCount).toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="detail-item">
+                      <span className="detail-label">Average area price</span>
+                      <span className="detail-value">
+                        {formatCurrency(neighborhoodStats.averagePrice)}
+                      </span>
+                    </div>
+                    <div className="detail-item">
+                      <span className="detail-label">Average area size</span>
+                      <span className="detail-value">
+                        {neighborhoodStats.averageSqft
+                          ? `${Number(neighborhoodStats.averageSqft).toLocaleString()} sqft`
+                          : 'Unavailable'}
+                      </span>
+                    </div>
+                  </>
+                ) : null}
+              </div>
+              {commuteContext && (
+                <p className="property-description subtle-copy">
+                  <strong>{commuteContext.primaryLabel}:</strong> {commuteContext.commuteScoreLabel}.{' '}
+                  {(commuteContext.notes || []).join(' ')}
+                </p>
+              )}
+            </div>
+          )}
+
+          {(priceHistory.length > 0 || taxHistory.length > 0) && (
+            <div className="property-section">
+              <h2>Price & Ownership Context</h2>
+              <div className="timeline-list">
+                {priceHistory.map((item) => (
+                  <div key={`${item.label}-${item.date}-${item.amount}`} className="timeline-item">
+                    <strong>{item.label}</strong>
+                    <span>
+                      {item.formattedAmount}
+                      {item.date ? ` • ${formatDate(item.date)}` : ''}
+                    </span>
+                  </div>
+                ))}
+                {taxHistory.map((item) => (
+                  <div key={`tax-${item.year}`} className="timeline-item">
+                    <strong>{item.year} estimated tax</strong>
+                    <span>
+                      {formatCurrency(item.estimatedAnnualTax)} / year •{' '}
+                      {formatCurrency(item.estimatedMonthlyTax)} / month
+                    </span>
                   </div>
                 ))}
               </div>

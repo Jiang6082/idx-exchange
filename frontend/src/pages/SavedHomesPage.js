@@ -4,7 +4,7 @@ import { fetchFavoriteProperties, markAlertRead } from '../api/client';
 import { useAccount } from '../hooks/useAccount';
 import { useToast } from '../components/ToastContext';
 import Pagination from '../components/Pagination';
-import './SavedHomesPage.css';
+import { buildSavedSearchHref } from '../utils/searchState';
 import './SavedHomesPage.css';
 
 function getFirstPhotoUrl(property) {
@@ -125,6 +125,48 @@ function SavedHomesPage() {
           <div className="panel sidebar-panel">
             <div className="section-heading">
               <div>
+                <span className="section-kicker">Saved searches</span>
+                <h2>Search center</h2>
+              </div>
+            </div>
+            {(accountState.savedSearches || []).length === 0 ? (
+              <p className="saved-empty">No saved searches yet.</p>
+            ) : (
+              <div className="sidebar-list">
+                {accountState.savedSearches.map((search) => (
+                  <div key={search.id} className="search-summary-card">
+                    <strong>{search.name}</strong>
+                    <span>
+                      {(search.summary?.totalMatches || 0).toLocaleString()} matches
+                      {search.summary?.newMatches > 0
+                        ? ` • ${search.summary.newMatches} new since last check`
+                        : ' • No new matches right now'}
+                    </span>
+                    <span>
+                      {search.summary?.averagePrice
+                        ? `Avg ${Number(search.summary.averagePrice).toLocaleString('en-US', {
+                            style: 'currency',
+                            currency: 'USD',
+                            maximumFractionDigits: 0
+                          })}`
+                        : 'Average price unavailable'}
+                    </span>
+                    <button
+                      type="button"
+                      className="saved-search-jump"
+                      onClick={() => navigate(buildSavedSearchHref(search))}
+                    >
+                      Open this search
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="panel sidebar-panel">
+            <div className="section-heading">
+              <div>
                 <span className="section-kicker">Alerts</span>
                 <h2>Saved search updates</h2>
               </div>
@@ -152,6 +194,9 @@ function SavedHomesPage() {
                   >
                     <strong>{alert.title}</strong>
                     <span>{alert.message}</span>
+                    <span className="alert-meta">
+                      {new Date(alert.createdAt).toLocaleString()}
+                    </span>
                   </button>
                 ))}
               </div>

@@ -717,6 +717,19 @@
     grid-template-columns: 1fr;
   }
 
+  .saved-search-item,
+  .section-heading {
+    align-items: start;
+  }
+
+  .compare-grid {
+    grid-template-columns: repeat(1, minmax(0, 1fr));
+  }
+
+  .compare-card {
+    padding-bottom: 1.2rem;
+  }
+
   .compare-btn {
     top: auto;
     bottom: 1rem;

@@ -11,7 +11,12 @@ const EMPTY_FILTERS = {
   baths: ''
 };
 
-function PropertyFilters({ onSearch, recentSearches = [], onApplyRecentSearch }) {
+function PropertyFilters({
+  onSearch,
+  recentSearches = [],
+  onApplyRecentSearch,
+  initialFilters = {}
+}) {
   const [filters, setFilters] = useState(EMPTY_FILTERS);
 
   useEffect(() => {
@@ -20,6 +25,13 @@ function PropertyFilters({ onSearch, recentSearches = [], onApplyRecentSearch })
       ...prev
     }));
   }, []);
+
+  useEffect(() => {
+    setFilters({
+      ...EMPTY_FILTERS,
+      ...(initialFilters || {})
+    });
+  }, [initialFilters]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;

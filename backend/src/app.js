@@ -3,6 +3,10 @@ const cors = require("cors");
 const pool = require("./db/mysql");
 const propertiesRouter = require("./routes/properties");
 const usersRouter = require("./routes/users");
+const experienceRouter = require("./routes/experience");
+const adminRouter = require("./routes/admin");
+const insightsRouter = require("./routes/insights");
+const sellerRouter = require("./routes/seller");
 const { rateLimit } = require("./middleware/rateLimit");
 
 function createApp() {
@@ -28,6 +32,10 @@ function createApp() {
 
   app.use("/api/properties", propertiesRouter);
   app.use("/api/users", usersRouter);
+  app.use("/api/experience", experienceRouter);
+  app.use("/api/admin", adminRouter);
+  app.use("/api/insights", insightsRouter);
+  app.use("/api/seller", sellerRouter);
 
   app.get("/api/health", async (req, res) => {
     try {

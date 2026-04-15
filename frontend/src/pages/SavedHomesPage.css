@@ -88,6 +88,31 @@
   opacity: 0.82;
 }
 
+.search-summary-card {
+  display: grid;
+  gap: 0.45rem;
+  padding: 0.95rem;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.84);
+}
+
+.saved-search-jump {
+  justify-self: start;
+  min-height: 2.5rem;
+  padding: 0.65rem 0.95rem;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.92);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.alert-meta {
+  font-size: 0.83rem;
+  color: var(--text-muted);
+}
+
 @media (max-width: 980px) {
   .saved-layout {
     grid-template-columns: 1fr;

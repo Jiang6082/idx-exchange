@@ -35,3 +35,38 @@ test("compare endpoint requires at least two ids", async () => {
   assert.equal(response.statusCode, 400);
   assert.match(response.body.error, /2 and 4|between 2 and 4/i);
 });
+
+test("properties endpoint rejects invalid sort field", async () => {
+  const app = createApp();
+  const response = await request(app).get("/api/properties?sortBy=DROP_TABLE");
+
+  assert.equal(response.statusCode, 400);
+  assert.match(response.body.error, /invalid sortby field/i);
+});
+
+test("properties endpoint rejects overly long query text", async () => {
+  const app = createApp();
+  const response = await request(app).get(`/api/properties?q=${"a".repeat(121)}`);
+
+  assert.equal(response.statusCode, 400);
+  assert.match(response.body.error, /q is too long/i);
+});
+
+test("seller estimate requires a city", async () => {
+  const app = createApp();
+  const response = await request(app).get("/api/seller/estimate");
+
+  assert.equal(response.statusCode, 400);
+  assert.match(response.body.error, /city is required/i);
+});
+
+test("assistant endpoint requires a message", async () => {
+  const app = createApp();
+  const response = await request(app)
+    .post("/api/experience/assistant")
+    .set("x-user-email", "demo@example.com")
+    .send({});
+
+  assert.equal(response.statusCode, 400);
+  assert.match(response.body.error, /message is required/i);
+});
