@@ -60,13 +60,65 @@ test("seller estimate requires a city", async () => {
   assert.match(response.body.error, /city is required/i);
 });
 
-test("assistant endpoint requires a message", async () => {
+test("assistant endpoint requires a signed-in session", async () => {
   const app = createApp();
   const response = await request(app)
     .post("/api/experience/assistant")
-    .set("x-user-email", "demo@example.com")
     .send({});
 
+  assert.equal(response.statusCode, 401);
+  assert.match(response.body.error, /sign in is required/i);
+});
+
+test("users endpoint requires a real signed-in session", async () => {
+  const app = createApp();
+  const response = await request(app).get("/api/users/me");
+
+  assert.equal(response.statusCode, 401);
+  assert.match(response.body.error, /sign in is required/i);
+});
+
+test("admin overview requires an authenticated admin session", async () => {
+  const app = createApp();
+  const response = await request(app).get("/api/admin/overview");
+
+  assert.equal(response.statusCode, 401);
+  assert.match(response.body.error, /sign in is required/i);
+});
+
+test("register rejects short passwords", async () => {
+  const app = createApp();
+  const response = await request(app).post("/api/auth/register").send({
+    email: "test@example.com",
+    password: "short",
+  });
+
   assert.equal(response.statusCode, 400);
-  assert.match(response.body.error, /message is required/i);
+  assert.match(response.body.error, /at least 8 characters/i);
+});
+
+test("register rejects re-registering an existing credentialed account", async () => {
+  const originalQuery = pool.query;
+  pool.query = async (sql, values) => {
+    if (String(sql).includes("FROM app_users WHERE email")) {
+      return [[{ id: 42, email: values[0], name: "Existing User" }]];
+    }
+
+    if (String(sql).includes("FROM app_user_credentials")) {
+      return [[{ user_id: 42 }]];
+    }
+
+    throw new Error(`Unexpected query in test: ${sql}`);
+  };
+
+  const app = createApp();
+  const response = await request(app).post("/api/auth/register").send({
+    email: "existing@example.com",
+    password: "longenough",
+  });
+
+  assert.equal(response.statusCode, 409);
+  assert.match(response.body.error, /already exists/i);
+
+  pool.query = originalQuery;
 });

@@ -22,6 +22,31 @@ function formatCurrency(value) {
   return value ? `$${Number(value).toLocaleString()}` : 'N/A';
 }
 
+function getWorkspaceSuggestions(workspace) {
+  const seen = new Set();
+  const suggestions = [];
+
+  const appendProperty = (property) => {
+    if (!property?.L_ListingID || seen.has(property.L_ListingID)) {
+      return;
+    }
+
+    seen.add(property.L_ListingID);
+    suggestions.push(property);
+  };
+
+  (workspace?.recommendations || []).forEach(appendProperty);
+  (workspace?.folders || []).forEach((folder) =>
+    (folder.items || []).forEach((item) => appendProperty(item.property))
+  );
+  (workspace?.tours || []).forEach((tour) => appendProperty(tour.property));
+  (workspace?.boards || []).forEach((board) =>
+    (board.items || []).forEach((item) => appendProperty(item.property))
+  );
+
+  return suggestions;
+}
+
 function WorkspacePage() {
   const navigate = useNavigate();
   const { pushToast } = useToast();
@@ -59,6 +84,7 @@ function WorkspacePage() {
   }
 
   const preferences = workspace?.preferences || {};
+  const listingSuggestions = getWorkspaceSuggestions(workspace);
 
   return (
     <div className="workspace-page">
@@ -122,9 +148,29 @@ function WorkspacePage() {
                     </button>
                   ))}
                   <div className="workspace-inline-action">
+                    <select
+                      value={workspace?._folderDrafts?.[folder.id] || ''}
+                      onChange={(event) =>
+                        setWorkspace((prev) => ({
+                          ...prev,
+                          _folderDrafts: {
+                            ...(prev?._folderDrafts || {}),
+                            [folder.id]: event.target.value
+                          }
+                        }))
+                      }
+                    >
+                      <option value="">Pick a suggested listing</option>
+                      {listingSuggestions.map((property) => (
+                        <option key={property.L_ListingID} value={property.L_ListingID}>
+                          {property.summary?.address || property.L_ListingID}
+                        </option>
+                      ))}
+                    </select>
                     <input
                       type="text"
                       placeholder="MLS to add"
+                      value={workspace?._folderDrafts?.[folder.id] || ''}
                       onChange={(event) =>
                         setWorkspace((prev) => ({
                           ...prev,
@@ -162,6 +208,19 @@ function WorkspacePage() {
               </div>
             </div>
             <div className="workspace-form-row">
+              <select
+                value={tourDraft.listingId}
+                onChange={(event) =>
+                  setTourDraft((prev) => ({ ...prev, listingId: event.target.value }))
+                }
+              >
+                <option value="">Pick a suggested listing</option>
+                {listingSuggestions.map((property) => (
+                  <option key={property.L_ListingID} value={property.L_ListingID}>
+                    {property.summary?.address || property.L_ListingID}
+                  </option>
+                ))}
+              </select>
               <input
                 type="text"
                 placeholder="MLS number"
@@ -222,6 +281,17 @@ function WorkspacePage() {
               </div>
             </div>
             <div className="workspace-form-row">
+              <select
+                value={checklistListingId}
+                onChange={(event) => setChecklistListingId(event.target.value)}
+              >
+                <option value="">Attach a suggested listing</option>
+                {listingSuggestions.map((property) => (
+                  <option key={property.L_ListingID} value={property.L_ListingID}>
+                    {property.summary?.address || property.L_ListingID}
+                  </option>
+                ))}
+              </select>
               <input
                 type="text"
                 placeholder="Checklist item"
@@ -325,6 +395,19 @@ function WorkspacePage() {
                 {(workspace?.boards || []).map((board) => (
                   <option key={board.id} value={board.id}>
                     {board.name}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={boardItemDraft.listingId}
+                onChange={(event) =>
+                  setBoardItemDraft((prev) => ({ ...prev, listingId: event.target.value }))
+                }
+              >
+                <option value="">Pick a suggested listing</option>
+                {listingSuggestions.map((property) => (
+                  <option key={property.L_ListingID} value={property.L_ListingID}>
+                    {property.summary?.address || property.L_ListingID}
                   </option>
                 ))}
               </select>

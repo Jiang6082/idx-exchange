@@ -21,6 +21,11 @@
   margin: 0.45rem 0;
 }
 
+.integration-note {
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
 @media (max-width: 980px) {
   .integrations-grid {
     grid-template-columns: 1fr 1fr;

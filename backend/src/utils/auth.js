@@ -44,6 +44,15 @@ async function getOrCreateUser(identity) {
   };
 }
 
+async function getUserByEmail(email) {
+  const [rows] = await pool.query(
+    "SELECT id, email, name, created_at, updated_at FROM app_users WHERE email = ? LIMIT 1",
+    [email]
+  );
+
+  return rows[0] || null;
+}
+
 function hashPassword(password, salt = crypto.randomBytes(16).toString("hex")) {
   const passwordHash = crypto
     .pbkdf2Sync(password, salt, 100000, 64, "sha512")
@@ -65,7 +74,8 @@ function verifyPassword(password, hash, salt) {
 
 async function createSession(userId) {
   const sessionToken = crypto.randomBytes(32).toString("hex");
-  const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 14);
+  const ttlDays = Number(process.env.SESSION_TTL_DAYS || 14);
+  const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * ttlDays);
 
   await pool.query(
     `INSERT INTO app_sessions (user_id, session_token, expires_at)
@@ -103,6 +113,49 @@ async function destroySession(token) {
   await pool.query("DELETE FROM app_sessions WHERE session_token = ?", [token]);
 }
 
+function isAdminUser(user) {
+  const configuredAdmins = String(process.env.ADMIN_EMAILS || "")
+    .split(",")
+    .map((email) => email.trim().toLowerCase())
+    .filter(Boolean);
+
+  return Boolean(user?.email) && configuredAdmins.includes(String(user.email).toLowerCase());
+}
+
+async function requireSessionUser(req, res, next) {
+  try {
+    const sessionUser = await getUserFromSession(req);
+    if (!sessionUser) {
+      return res.status(401).json({ error: "Sign in is required" });
+    }
+
+    req.user = sessionUser;
+    return next();
+  } catch (error) {
+    console.error("Session auth error:", error);
+    return res.status(500).json({ error: "Failed to validate session" });
+  }
+}
+
+async function requireAdminUser(req, res, next) {
+  try {
+    const sessionUser = await getUserFromSession(req);
+    if (!sessionUser) {
+      return res.status(401).json({ error: "Sign in is required" });
+    }
+
+    if (!isAdminUser(sessionUser)) {
+      return res.status(403).json({ error: "Admin access is required" });
+    }
+
+    req.user = sessionUser;
+    return next();
+  } catch (error) {
+    console.error("Admin auth error:", error);
+    return res.status(500).json({ error: "Failed to validate admin session" });
+  }
+}
+
 async function requireUser(req, res, next) {
   try {
     const sessionUser = await getUserFromSession(req);
@@ -128,10 +181,14 @@ async function requireUser(req, res, next) {
 module.exports = {
   getUserIdentity,
   getOrCreateUser,
+  getUserByEmail,
   hashPassword,
   verifyPassword,
   createSession,
   getUserFromSession,
   destroySession,
+  isAdminUser,
   requireUser,
+  requireSessionUser,
+  requireAdminUser,
 };

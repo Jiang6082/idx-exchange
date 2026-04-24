@@ -94,11 +94,15 @@ async function generateSearchFilters(message) {
       schemaHint:
         '{ "q": "", "city": "", "zipcode": "", "minPrice": "", "maxPrice": "", "beds": "", "baths": "", "reasoning": "" }',
     });
-    return parsed;
+    return {
+      ...parsed,
+      source: "openai",
+    };
   } catch (error) {
     return {
       ...heuristicSearchFilters(message),
       reasoning: "Heuristic fallback used because OpenAI is not configured or unavailable.",
+      source: "heuristic-fallback",
     };
   }
 }
@@ -122,7 +126,10 @@ async function explainProperty(property) {
       }),
       schemaHint: '{ "headline": "", "summary": "", "watchouts": "" }',
     });
-    return parsed;
+    return {
+      ...parsed,
+      source: "openai",
+    };
   } catch (error) {
     return {
       headline: "Quick property read",
@@ -130,6 +137,7 @@ async function explainProperty(property) {
         summary.city || "the area"
       } priced at ${summary.priceLabel || "N/A"}.`,
       watchouts: "Review recent price changes, days on market, and lot condition before touring.",
+      source: "heuristic-fallback",
     };
   }
 }

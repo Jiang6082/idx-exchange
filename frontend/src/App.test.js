@@ -5,6 +5,7 @@ jest.mock(
   'react-router-dom',
   () => ({
     BrowserRouter: ({ children }) => <>{children}</>,
+    Navigate: () => <div>Navigate</div>,
     Routes: ({ children }) => <>{children}</>,
     Route: ({ element }) => element
   }),

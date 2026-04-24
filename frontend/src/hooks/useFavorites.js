@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import {
   addFavorite as addFavoriteRequest,
   fetchCurrentUserState,
+  getSessionToken,
   removeFavorite as removeFavoriteRequest
 } from '../api/client';
 
@@ -14,6 +15,13 @@ export function useFavorites() {
 
     async function loadFavorites() {
       try {
+        if (!getSessionToken()) {
+          if (!cancelled) {
+            setFavorites([]);
+          }
+          return;
+        }
+
         const state = await fetchCurrentUserState();
         if (!cancelled) {
           setFavorites(state.favorites || []);
@@ -29,8 +37,16 @@ export function useFavorites() {
 
     loadFavorites();
 
+    function handleSessionChange() {
+      setLoading(true);
+      loadFavorites();
+    }
+
+    window.addEventListener('idx-session-change', handleSessionChange);
+
     return () => {
       cancelled = true;
+      window.removeEventListener('idx-session-change', handleSessionChange);
     };
   }, []);
 
@@ -66,6 +82,7 @@ export function useFavorites() {
 
   return {
     favorites,
+    isSessionReady: Boolean(getSessionToken()),
     addFavorite,
     removeFavorite,
     isFavorite,

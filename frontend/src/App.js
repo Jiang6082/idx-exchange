@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Navigate, Routes, Route } from 'react-router-dom';
 import ListingsPage from './pages/ListingsPage';
 import PropertyDetailPage from './pages/PropertyDetailPage';
 import SavedHomesPage from './pages/SavedHomesPage';
@@ -12,7 +12,12 @@ import IntegrationsPage from './pages/IntegrationsPage';
 import AppHeader from './components/AppHeader';
 import ErrorBoundary from './components/ErrorBoundary';
 import { ToastProvider } from './components/ToastContext';
+import { getSessionToken } from './api/client';
 import './App.css';
+
+function ProtectedRoute({ children }) {
+  return getSessionToken() ? children : <Navigate to="/auth" replace />;
+}
 
 function App() {
   return (
@@ -23,13 +28,41 @@ function App() {
             <AppHeader />
             <Routes>
               <Route path="/" element={<ListingsPage />} />
-              <Route path="/saved" element={<SavedHomesPage />} />
-              <Route path="/workspace" element={<WorkspacePage />} />
+              <Route
+                path="/saved"
+                element={
+                  <ProtectedRoute>
+                    <SavedHomesPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/workspace"
+                element={
+                  <ProtectedRoute>
+                    <WorkspacePage />
+                  </ProtectedRoute>
+                }
+              />
               <Route path="/insights" element={<InsightsPage />} />
-              <Route path="/agent" element={<AgentDashboardPage />} />
+              <Route
+                path="/agent"
+                element={
+                  <ProtectedRoute>
+                    <AgentDashboardPage />
+                  </ProtectedRoute>
+                }
+              />
               <Route path="/seller" element={<SellerToolsPage />} />
               <Route path="/auth" element={<AuthPage />} />
-              <Route path="/integrations" element={<IntegrationsPage />} />
+              <Route
+                path="/integrations"
+                element={
+                  <ProtectedRoute>
+                    <IntegrationsPage />
+                  </ProtectedRoute>
+                }
+              />
               <Route path="/property/:id" element={<PropertyDetailPage />} />
             </Routes>
           </div>

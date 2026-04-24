@@ -3,6 +3,8 @@ import {
   DEFAULT_PROFILE,
   fetchAuthSession,
   fetchCurrentUserState,
+  getSessionToken,
+  getStoredProfile,
   updateProfile
 } from '../api/client';
 
@@ -13,20 +15,7 @@ function readProfile() {
     return DEFAULT_PROFILE;
   }
 
-  try {
-    const saved = window.localStorage.getItem(STORAGE_KEY);
-    if (!saved) {
-      return DEFAULT_PROFILE;
-    }
-
-    const parsed = JSON.parse(saved);
-    return {
-      email: parsed?.email || DEFAULT_PROFILE.email,
-      name: parsed?.name || DEFAULT_PROFILE.name
-    };
-  } catch (error) {
-    return DEFAULT_PROFILE;
-  }
+  return getStoredProfile();
 }
 
 export function useAccount() {
@@ -45,6 +34,19 @@ export function useAccount() {
 
     async function loadState() {
       try {
+        if (!getSessionToken()) {
+          if (!cancelled) {
+            setSessionUser(null);
+            setAccountState({
+              favorites: [],
+              savedSearches: [],
+              recentViews: [],
+              alerts: []
+            });
+          }
+          return;
+        }
+
         const auth = await fetchAuthSession();
         const nextState = await fetchCurrentUserState();
         if (!cancelled) {
@@ -75,8 +77,15 @@ export function useAccount() {
 
     loadState();
 
+    function handleSessionChange() {
+      setProfile(readProfile());
+    }
+
+    window.addEventListener('idx-session-change', handleSessionChange);
+
     return () => {
       cancelled = true;
+      window.removeEventListener('idx-session-change', handleSessionChange);
     };
   }, [profile.email, profile.name]);
 

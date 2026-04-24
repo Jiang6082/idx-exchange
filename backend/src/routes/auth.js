@@ -3,6 +3,7 @@ const pool = require("../db/mysql");
 const {
   createSession,
   destroySession,
+  getUserByEmail,
   getOrCreateUser,
   getUserFromSession,
   hashPassword,
@@ -24,6 +25,22 @@ router.post("/register", async (req, res) => {
 
     if (!email || !password) {
       return res.status(400).json({ error: "email and password are required" });
+    }
+
+    if (password.length < 8) {
+      return res.status(400).json({ error: "password must be at least 8 characters" });
+    }
+
+    const existingUser = await getUserByEmail(email);
+    if (existingUser) {
+      const [credentialRows] = await pool.query(
+        "SELECT user_id FROM app_user_credentials WHERE user_id = ? LIMIT 1",
+        [existingUser.id]
+      );
+
+      if (credentialRows.length > 0) {
+        return res.status(409).json({ error: "An account with this email already exists" });
+      }
     }
 
     const user = await getOrCreateUser({ email, name: name || null });

@@ -97,7 +97,7 @@ function PropertyDetailPage() {
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [aiExplanation, setAiExplanation] = useState(null);
 
-  const { addFavorite, removeFavorite, isFavorite } = useFavorites();
+  const { addFavorite, removeFavorite, isFavorite, isSessionReady } = useFavorites();
 
   useEffect(() => {
     let cancelled = false;
@@ -198,7 +198,8 @@ function PropertyDetailPage() {
   const hasMapCoordinates = !Number.isNaN(lat) && !Number.isNaN(lng) && lat !== 0 && lng !== 0;
   const relatedProperties = property.relatedProperties || [];
   const timeline = property.timeline || [];
-  const schools = property.schools || [];
+  const schoolItems = property.schools?.items || [];
+  const schoolSource = property.schools?.source || null;
   const commuteContext = property.commuteContext || null;
   const taxHistory = property.taxHistory || [];
   const priceHistory = property.priceHistory || [];
@@ -208,6 +209,11 @@ function PropertyDetailPage() {
     photoUrls.length > 0 ? `${activePhotoIndex + 1} / ${photoUrls.length}` : null;
 
   const handleFavoriteClick = async () => {
+    if (!isSessionReady) {
+      navigate('/auth');
+      return;
+    }
+
     if (favorite) {
       await removeFavorite(property.L_ListingID);
     } else {
@@ -519,11 +525,11 @@ function PropertyDetailPage() {
             </div>
           )}
 
-          {(schools.length > 0 || commuteContext || neighborhoodStats) && (
+          {(schoolItems.length > 0 || commuteContext || neighborhoodStats) && (
             <div className="property-section">
               <h2>Area Snapshot</h2>
               <div className="detail-grid">
-                {schools.map((item) => (
+                {schoolItems.map((item) => (
                   <div key={`${item.label}-${item.value}`} className="detail-item">
                     <span className="detail-label">{item.label}</span>
                     <span className="detail-value">{item.value}</span>
@@ -554,10 +560,18 @@ function PropertyDetailPage() {
                   </>
                 ) : null}
               </div>
+              {schoolSource && (
+                <p className="property-description subtle-copy">
+                  School context source: {schoolSource === 'listing-data' ? 'listing data' : 'fallback summary'}.
+                </p>
+              )}
               {commuteContext && (
                 <p className="property-description subtle-copy">
                   <strong>{commuteContext.primaryLabel}:</strong> {commuteContext.commuteScoreLabel}.{' '}
-                  {(commuteContext.notes || []).join(' ')}
+                  {(commuteContext.notes || []).join(' ')}{' '}
+                  {commuteContext.fallback?.source === 'fallback'
+                    ? 'Commute details are currently using fallback market context.'
+                    : ''}
                 </p>
               )}
             </div>

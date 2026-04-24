@@ -1,6 +1,6 @@
 const express = require("express");
 const pool = require("../db/mysql");
-const { requireUser } = require("../utils/auth");
+const { requireSessionUser } = require("../utils/auth");
 const { serializePropertySummary } = require("../utils/propertyTransforms");
 
 const router = express.Router();
@@ -86,7 +86,7 @@ async function getRecommendationsForUser(userId) {
   return rows.map(serializePropertySummary);
 }
 
-router.get("/workspace", requireUser, async (req, res) => {
+router.get("/workspace", requireSessionUser, async (req, res) => {
   const [folderRows] = await pool.query(
     `SELECT f.id, f.name, f.color, COUNT(fp.id) AS itemCount
      FROM user_folders f
@@ -235,7 +235,7 @@ router.get("/workspace", requireUser, async (req, res) => {
   });
 });
 
-router.post("/folders", requireUser, async (req, res) => {
+router.post("/folders", requireSessionUser, async (req, res) => {
   const name = String(req.body?.name || "").trim();
   const color = String(req.body?.color || "#0f766e").trim();
 
@@ -251,7 +251,7 @@ router.post("/folders", requireUser, async (req, res) => {
   return res.json({ id: insertResult.insertId, name, color });
 });
 
-router.post("/folders/:id/listings", requireUser, async (req, res) => {
+router.post("/folders/:id/listings", requireSessionUser, async (req, res) => {
   const listingId = String(req.body?.listingId || "").trim();
   const note = String(req.body?.note || "").trim();
   const stage = String(req.body?.stage || "shortlist").trim();
@@ -271,7 +271,7 @@ router.post("/folders/:id/listings", requireUser, async (req, res) => {
   return res.json({ ok: true });
 });
 
-router.patch("/folder-items/:id", requireUser, async (req, res) => {
+router.patch("/folder-items/:id", requireSessionUser, async (req, res) => {
   const note = req.body?.note !== undefined ? String(req.body.note).trim() : undefined;
   const stage = req.body?.stage !== undefined ? String(req.body.stage).trim() : undefined;
   const updates = [];
@@ -304,7 +304,7 @@ router.patch("/folder-items/:id", requireUser, async (req, res) => {
   return res.json({ ok: true });
 });
 
-router.post("/tours", requireUser, async (req, res) => {
+router.post("/tours", requireSessionUser, async (req, res) => {
   const listingId = String(req.body?.listingId || "").trim();
   const scheduledFor = String(req.body?.scheduledFor || "").trim();
 
@@ -321,7 +321,7 @@ router.post("/tours", requireUser, async (req, res) => {
   return res.json({ id: insertResult.insertId, ok: true });
 });
 
-router.patch("/tours/:id", requireUser, async (req, res) => {
+router.patch("/tours/:id", requireSessionUser, async (req, res) => {
   const status = String(req.body?.status || "").trim();
 
   if (!status) {
@@ -338,7 +338,7 @@ router.patch("/tours/:id", requireUser, async (req, res) => {
   return res.json({ ok: true });
 });
 
-router.post("/checklist-items", requireUser, async (req, res) => {
+router.post("/checklist-items", requireSessionUser, async (req, res) => {
   const title = String(req.body?.title || "").trim();
   const listingId = String(req.body?.listingId || "").trim();
 
@@ -355,7 +355,7 @@ router.post("/checklist-items", requireUser, async (req, res) => {
   return res.json({ id: insertResult.insertId, ok: true });
 });
 
-router.patch("/checklist-items/:id", requireUser, async (req, res) => {
+router.patch("/checklist-items/:id", requireSessionUser, async (req, res) => {
   const status = String(req.body?.status || "").trim();
 
   if (!status) {
@@ -372,7 +372,7 @@ router.patch("/checklist-items/:id", requireUser, async (req, res) => {
   return res.json({ ok: true });
 });
 
-router.post("/boards", requireUser, async (req, res) => {
+router.post("/boards", requireSessionUser, async (req, res) => {
   const name = String(req.body?.name || "").trim();
   const description = String(req.body?.description || "").trim();
 
@@ -389,7 +389,7 @@ router.post("/boards", requireUser, async (req, res) => {
   return res.json({ id: insertResult.insertId, name, description });
 });
 
-router.post("/boards/:id/items", requireUser, async (req, res) => {
+router.post("/boards/:id/items", requireSessionUser, async (req, res) => {
   const listingId = String(req.body?.listingId || "").trim();
   const comment = String(req.body?.comment || "").trim();
   const reaction = String(req.body?.reaction || "interested").trim();
@@ -409,7 +409,7 @@ router.post("/boards/:id/items", requireUser, async (req, res) => {
   return res.json({ ok: true });
 });
 
-router.post("/boards/:id/members", requireUser, async (req, res) => {
+router.post("/boards/:id/members", requireSessionUser, async (req, res) => {
   const email = String(req.body?.email || "").trim().toLowerCase();
   const roleName = String(req.body?.roleName || "viewer").trim();
 
@@ -428,7 +428,7 @@ router.post("/boards/:id/members", requireUser, async (req, res) => {
   return res.json({ ok: true });
 });
 
-router.post("/board-items/:id/comments", requireUser, async (req, res) => {
+router.post("/board-items/:id/comments", requireSessionUser, async (req, res) => {
   const body = String(req.body?.body || "").trim();
 
   if (!body) {
@@ -447,7 +447,7 @@ router.post("/board-items/:id/comments", requireUser, async (req, res) => {
   return res.json({ ok: true });
 });
 
-router.patch("/preferences", requireUser, async (req, res) => {
+router.patch("/preferences", requireSessionUser, async (req, res) => {
   const instantAlerts = req.body?.instantAlerts === false ? 0 : 1;
   const dailyDigest = req.body?.dailyDigest === false ? 0 : 1;
   const priceDrops = req.body?.priceDrops === false ? 0 : 1;
@@ -468,7 +468,7 @@ router.patch("/preferences", requireUser, async (req, res) => {
   return res.json({ ok: true });
 });
 
-router.post("/assistant", requireUser, async (req, res) => {
+router.post("/assistant", requireSessionUser, async (req, res) => {
   const message = String(req.body?.message || "").trim();
   const currentFilters = req.body?.currentFilters || {};
 

@@ -1,11 +1,11 @@
 const express = require("express");
 const pool = require("../db/mysql");
 const { serializePropertySummary } = require("../utils/propertyTransforms");
-const { requireUser } = require("../utils/auth");
+const { requireSessionUser } = require("../utils/auth");
 
 const router = express.Router();
 
-router.get("/me", requireUser, async (req, res) => {
+router.get("/me", requireSessionUser, async (req, res) => {
   const [favoritesRows] = await pool.query(
     "SELECT listing_id FROM user_favorites WHERE user_id = ? ORDER BY created_at DESC",
     [req.user.id]
@@ -131,7 +131,7 @@ router.get("/me", requireUser, async (req, res) => {
   });
 });
 
-router.get("/me/favorite-properties", requireUser, async (req, res) => {
+router.get("/me/favorite-properties", requireSessionUser, async (req, res) => {
   const limit =
     req.query.limit !== undefined ? Math.min(50, Math.max(1, Number(req.query.limit))) : 20;
   const offset =
@@ -160,7 +160,7 @@ router.get("/me/favorite-properties", requireUser, async (req, res) => {
   });
 });
 
-router.put("/me", requireUser, async (req, res) => {
+router.put("/me", requireSessionUser, async (req, res) => {
   const nextName = String(req.body?.name || "").trim();
 
   await pool.query("UPDATE app_users SET name = ? WHERE id = ?", [
@@ -176,7 +176,7 @@ router.put("/me", requireUser, async (req, res) => {
   });
 });
 
-router.post("/me/favorites", requireUser, async (req, res) => {
+router.post("/me/favorites", requireSessionUser, async (req, res) => {
   const listingId = String(req.body?.listingId || "").trim();
 
   if (!listingId) {
@@ -191,7 +191,7 @@ router.post("/me/favorites", requireUser, async (req, res) => {
   return res.json({ ok: true });
 });
 
-router.delete("/me/favorites/:listingId", requireUser, async (req, res) => {
+router.delete("/me/favorites/:listingId", requireSessionUser, async (req, res) => {
   await pool.query(
     "DELETE FROM user_favorites WHERE user_id = ? AND listing_id = ?",
     [req.user.id, req.params.listingId]
@@ -200,7 +200,7 @@ router.delete("/me/favorites/:listingId", requireUser, async (req, res) => {
   return res.json({ ok: true });
 });
 
-router.post("/me/saved-searches", requireUser, async (req, res) => {
+router.post("/me/saved-searches", requireSessionUser, async (req, res) => {
   const name = String(req.body?.name || "").trim();
   const filters = req.body?.filters || {};
   const alertEnabled = req.body?.alertEnabled !== false;
@@ -223,7 +223,7 @@ router.post("/me/saved-searches", requireUser, async (req, res) => {
   });
 });
 
-router.patch("/me/saved-searches/:id", requireUser, async (req, res) => {
+router.patch("/me/saved-searches/:id", requireSessionUser, async (req, res) => {
   const updates = [];
   const values = [];
 
@@ -263,7 +263,7 @@ router.patch("/me/saved-searches/:id", requireUser, async (req, res) => {
   return res.json({ ok: true });
 });
 
-router.delete("/me/saved-searches/:id", requireUser, async (req, res) => {
+router.delete("/me/saved-searches/:id", requireSessionUser, async (req, res) => {
   await pool.query("DELETE FROM saved_searches WHERE user_id = ? AND id = ?", [
     req.user.id,
     req.params.id,
@@ -272,7 +272,7 @@ router.delete("/me/saved-searches/:id", requireUser, async (req, res) => {
   return res.json({ ok: true });
 });
 
-router.post("/me/views", requireUser, async (req, res) => {
+router.post("/me/views", requireSessionUser, async (req, res) => {
   const listingId = String(req.body?.listingId || "").trim();
 
   if (!listingId) {
@@ -287,7 +287,7 @@ router.post("/me/views", requireUser, async (req, res) => {
   return res.json({ ok: true });
 });
 
-router.patch("/me/alerts/:id/read", requireUser, async (req, res) => {
+router.patch("/me/alerts/:id/read", requireSessionUser, async (req, res) => {
   await pool.query(
     "UPDATE saved_search_alerts SET is_read = 1 WHERE user_id = ? AND id = ?",
     [req.user.id, req.params.id]

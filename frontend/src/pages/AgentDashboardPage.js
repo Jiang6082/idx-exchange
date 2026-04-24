@@ -8,10 +8,19 @@ function formatCurrency(value) {
 
 function AgentDashboardPage() {
   const [data, setData] = useState(null);
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    fetchAdminOverview().then(setData).catch(() => {});
+    fetchAdminOverview()
+      .then(setData)
+      .catch(() => {
+        setError('Admin access is required to view this dashboard.');
+      });
   }, []);
+
+  if (error) {
+    return <div className="agent-page"><div className="panel agent-panel">{error}</div></div>;
+  }
 
   if (!data) {
     return <div className="agent-page"><div className="panel agent-panel">Loading dashboard...</div></div>;

@@ -3,7 +3,19 @@ import { NavLink } from 'react-router-dom';
 import { getSessionToken } from '../api/client';
 
 function AppHeader() {
-  const isSignedIn = Boolean(getSessionToken());
+  const [isSignedIn, setIsSignedIn] = React.useState(Boolean(getSessionToken()));
+
+  React.useEffect(() => {
+    function handleSessionChange() {
+      setIsSignedIn(Boolean(getSessionToken()));
+    }
+
+    window.addEventListener('idx-session-change', handleSessionChange);
+    return () => {
+      window.removeEventListener('idx-session-change', handleSessionChange);
+    };
+  }, []);
+
   return (
     <header className="app-header-shell">
       <div className="app-header-content">

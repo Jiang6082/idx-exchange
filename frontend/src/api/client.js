@@ -4,6 +4,7 @@ const DEFAULT_PROFILE = {
   name: 'Guest Buyer'
 };
 const SESSION_STORAGE_KEY = 'idxSessionToken';
+const PROFILE_STORAGE_KEY = 'idxActiveProfile';
 
 function getActiveProfile() {
   if (typeof window === 'undefined') {
@@ -44,6 +45,38 @@ export function setSessionToken(token) {
   } else {
     window.localStorage.removeItem(SESSION_STORAGE_KEY);
   }
+
+  window.dispatchEvent(new Event('idx-session-change'));
+}
+
+export function getStoredProfile() {
+  if (typeof window === 'undefined') {
+    return DEFAULT_PROFILE;
+  }
+
+  try {
+    const saved = window.localStorage.getItem(PROFILE_STORAGE_KEY);
+    if (!saved) {
+      return DEFAULT_PROFILE;
+    }
+
+    const parsed = JSON.parse(saved);
+    return {
+      email: parsed?.email || DEFAULT_PROFILE.email,
+      name: parsed?.name || DEFAULT_PROFILE.name
+    };
+  } catch (error) {
+    return DEFAULT_PROFILE;
+  }
+}
+
+export function setStoredProfile(profile) {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  window.localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(profile));
+  window.dispatchEvent(new Event('idx-session-change'));
 }
 
 async function request(path, options = {}) {
@@ -126,6 +159,12 @@ export async function registerAccount(payload) {
   if (response.sessionToken) {
     setSessionToken(response.sessionToken);
   }
+  if (response.user) {
+    setStoredProfile({
+      email: response.user.email || payload.email || DEFAULT_PROFILE.email,
+      name: response.user.name || payload.name || DEFAULT_PROFILE.name
+    });
+  }
   return response;
 }
 
@@ -137,6 +176,12 @@ export async function loginAccount(payload) {
   if (response.sessionToken) {
     setSessionToken(response.sessionToken);
   }
+  if (response.user) {
+    setStoredProfile({
+      email: response.user.email || payload.email || DEFAULT_PROFILE.email,
+      name: response.user.name || DEFAULT_PROFILE.name
+    });
+  }
   return response;
 }
 
@@ -145,6 +190,7 @@ export async function logoutAccount() {
     method: 'POST'
   });
   setSessionToken('');
+  setStoredProfile(DEFAULT_PROFILE);
   return response;
 }
 

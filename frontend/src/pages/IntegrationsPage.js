@@ -31,6 +31,11 @@ function IntegrationsPage() {
                 ? `Model: ${integration.model}`
                 : `Provider: ${integration.provider || 'not configured'}`}
             </span>
+            <small className="integration-note">
+              {key === 'openai'
+                ? 'Set OPENAI_API_KEY and optionally OPENAI_MODEL in backend/.env.'
+                : `Configure ${key.toUpperCase()} provider keys in backend/.env to move out of fallback mode.`}
+            </small>
           </div>
         ))}
       </section>

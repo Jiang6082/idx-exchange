@@ -179,8 +179,8 @@ function ListingsPage() {
 
   const itemsPerPage = 20;
 
-  const { favorites, addFavorite, removeFavorite, isFavorite } = useFavorites();
-  const { profile, setProfile, accountState, setAccountState } = useAccount();
+  const { favorites, addFavorite, removeFavorite, isFavorite, isSessionReady } = useFavorites();
+  const { profile, setProfile, sessionUser, accountState, setAccountState } = useAccount();
   const [draftProfile, setDraftProfile] = useState(profile);
 
   useEffect(() => {
@@ -353,6 +353,12 @@ function ListingsPage() {
   };
 
   const handleSaveSearch = async () => {
+    if (!sessionUser) {
+      pushToast('Sign in to save searches to your account.', 'info');
+      navigate('/auth');
+      return;
+    }
+
     try {
       const nextName =
         saveSearchName.trim() ||
@@ -424,6 +430,11 @@ function ListingsPage() {
 
   const handleSaveProfile = async (event) => {
     event.preventDefault();
+    if (!sessionUser) {
+      pushToast('Sign in to manage your account profile.', 'info');
+      navigate('/auth');
+      return;
+    }
     await setProfile(draftProfile);
     pushToast('Account profile updated.', 'success');
   };
@@ -520,7 +531,11 @@ function ListingsPage() {
               <span className="section-kicker">Account</span>
               <h2>Your synced profile</h2>
             </div>
-            <p>Favorites, saved searches, and recently viewed homes stay tied to this account.</p>
+            <p>
+              {sessionUser
+                ? 'Favorites, saved searches, and recently viewed homes stay tied to this account.'
+                : 'Sign in to sync favorites, saved searches, and workspace activity across devices.'}
+            </p>
           </div>
 
           <form className="account-form" onSubmit={handleSaveProfile}>
@@ -541,7 +556,7 @@ function ListingsPage() {
               placeholder="Email address"
             />
             <button type="submit" className="btn-primary">
-              Save account
+              {sessionUser ? 'Save account' : 'Sign in first'}
             </button>
           </form>
         </div>
@@ -563,7 +578,7 @@ function ListingsPage() {
               placeholder="Name this search"
             />
             <button type="button" className="btn-primary" onClick={handleSaveSearch}>
-              Save current search
+              {sessionUser ? 'Save current search' : 'Sign in to save'}
             </button>
           </div>
 
@@ -851,6 +866,7 @@ function ListingsPage() {
                 <PropertyCard
                   key={property.L_ListingID}
                   property={property}
+                  isSessionReady={isSessionReady}
                   isFavorite={isFavorite(property.L_ListingID)}
                   addFavorite={addFavorite}
                   removeFavorite={removeFavorite}
@@ -860,6 +876,7 @@ function ListingsPage() {
                     compareIds.length >= 4 && !compareIds.includes(property.L_ListingID)
                   }
                   onOpen={() => navigate(`/property/${property.L_ListingID}`)}
+                  onRequireSignIn={() => navigate('/auth')}
                 />
               ))}
             </div>
@@ -895,16 +912,23 @@ function ListingsPage() {
 
 function PropertyCard({
   property,
+  isSessionReady,
   isFavorite,
   addFavorite,
   removeFavorite,
   isCompared,
   onToggleCompare,
   compareDisabled,
-  onOpen
+  onOpen,
+  onRequireSignIn
 }) {
   const handleFavoriteClick = async (e) => {
     e.stopPropagation();
+
+    if (!isSessionReady) {
+      onRequireSignIn();
+      return;
+    }
 
     if (isFavorite) {
       await removeFavorite(property.L_ListingID);

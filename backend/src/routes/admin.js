@@ -1,9 +1,10 @@
 const express = require("express");
 const pool = require("../db/mysql");
+const { requireAdminUser } = require("../utils/auth");
 
 const router = express.Router();
 
-router.get("/overview", async (req, res) => {
+router.get("/overview", requireAdminUser, async (req, res) => {
   try {
     const [
       [userTotals],

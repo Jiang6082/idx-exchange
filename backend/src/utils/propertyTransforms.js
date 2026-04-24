@@ -171,6 +171,7 @@ function serializePropertySummary(property) {
 
 function serializePropertyDetail(property, extras = {}) {
   const summary = serializePropertySummary(property).summary;
+  const schoolContext = buildSchoolContext(property);
 
   return {
     ...property,
@@ -178,8 +179,25 @@ function serializePropertyDetail(property, extras = {}) {
     media: {
       photos: parsePhotos(property.L_Photos),
     },
-    schools: buildSchoolContext(property),
-    commuteContext: buildCommuteContext(property),
+    schools:
+      schoolContext.length > 0
+        ? {
+            source: "listing-data",
+            items: schoolContext,
+          }
+        : {
+            source: buildSchoolFallback(property).source,
+            items: [
+              {
+                label: "District",
+                value: buildSchoolFallback(property).district,
+              },
+            ],
+          },
+    commuteContext: {
+      ...buildCommuteContext(property),
+      fallback: buildCommuteFallback(property),
+    },
     taxHistory: buildTaxHistory(property),
     priceHistory: buildPriceHistory(property),
     neighborhoodStats: extras.neighborhoodStats || null,
@@ -192,3 +210,7 @@ module.exports = {
   serializePropertySummary,
   serializePropertyDetail,
 };
+const {
+  buildCommuteFallback,
+  buildSchoolFallback,
+} = require("../services/integrations");

@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getSessionToken, loginAccount, logoutAccount, registerAccount } from '../api/client';
 import './AuthPage.css';
 
 function AuthPage() {
   const navigate = useNavigate();
-  const isSignedIn = Boolean(getSessionToken());
+  const [isSignedIn, setIsSignedIn] = useState(Boolean(getSessionToken()));
   const [mode, setMode] = useState('login');
   const [form, setForm] = useState({
     name: '',
@@ -13,6 +13,17 @@ function AuthPage() {
     password: ''
   });
   const [message, setMessage] = useState('');
+
+  useEffect(() => {
+    function handleSessionChange() {
+      setIsSignedIn(Boolean(getSessionToken()));
+    }
+
+    window.addEventListener('idx-session-change', handleSessionChange);
+    return () => {
+      window.removeEventListener('idx-session-change', handleSessionChange);
+    };
+  }, []);
 
   return (
     <div className="auth-page">
