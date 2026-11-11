@@ -24,8 +24,29 @@ async function getRedisClient() {
   }
 }
 
+// Sort object keys at every level and drop undefined values, so the same
+// payload always serializes to the same string regardless of key order.
+function canonicalize(value) {
+  if (Array.isArray(value)) {
+    return value.map(canonicalize);
+  }
+
+  if (value && typeof value === "object") {
+    return Object.keys(value)
+      .sort()
+      .reduce((result, key) => {
+        if (value[key] !== undefined) {
+          result[key] = canonicalize(value[key]);
+        }
+        return result;
+      }, {});
+  }
+
+  return value;
+}
+
 function getCacheKey(prefix, payload) {
-  return `${prefix}:${JSON.stringify(payload)}`;
+  return `${prefix}:${JSON.stringify(canonicalize(payload))}`;
 }
 
 async function readCache(key) {
@@ -65,6 +86,7 @@ async function writeCache(key, value, ttlMs = 15000) {
 }
 
 module.exports = {
+  canonicalize,
   getCacheKey,
   readCache,
   writeCache,

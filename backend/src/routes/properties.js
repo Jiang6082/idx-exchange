@@ -1,7 +1,8 @@
 const express = require("express");
 const router = express.Router();
 const pool = require("../db/mysql");
-const { getCacheKey, readCache, writeCache } = require("../utils/cache");
+const { readCache, writeCache } = require("../utils/cache");
+const { searchCacheKey } = require("../utils/searchCacheKey");
 const {
   serializePropertySummary,
   serializePropertyDetail,
@@ -466,7 +467,7 @@ router.get("/", async (req, res) => {
       return res.status(400).json({ error: "Invalid sortBy field" });
     }
 
-    const cacheKey = getCacheKey("properties", req.query);
+    const cacheKey = searchCacheKey(req.query, { limit, offset });
     const cached = await readCache(cacheKey);
     if (cached) {
       return res.json(cached);
